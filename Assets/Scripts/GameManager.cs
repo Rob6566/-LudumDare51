@@ -13,11 +13,16 @@ public class GameManager : MonoBehaviour {
     public GameObject battlefieldObjectPrefab;
     public GameObject battlefieldContainer;
     [SerializeField] Image playerActionUI;
-    [SerializeField] Image enemyActionUI;
+    [SerializeField] List<Image> enemyActionUI = new List<Image>();
+    [SerializeField] List<Sprite> enemyActionSprites = new List<Sprite>();
+
+
 
     [SerializeField] TextMeshProUGUI goldUI;
     [SerializeField] TextMeshProUGUI scienceUI;
     [SerializeField] TextMeshProUGUI timerUI;
+
+    public Canvas canvas;
 
     public int gold=0;
     public int science=0;
@@ -40,6 +45,8 @@ public class GameManager : MonoBehaviour {
     public float timeRemainingInTic=10f;
     public bool paused=true;
     public List<BattlefieldObjectSO> currentSelectableTowers = new List<BattlefieldObjectSO>(); 
+    public BattlefieldObject selectedTower=null;
+    public List<int> enemyActions = new List<int>();
 
     public List<BattlefieldObjectSO> allEnemies = new List<BattlefieldObjectSO>(); 
     public List<BattlefieldObjectSO> allTowers = new List<BattlefieldObjectSO>(); 
@@ -69,6 +76,13 @@ public class GameManager : MonoBehaviour {
     public const int ACTION_TINKER=2;
     public const int ACTION_BUILD_BASIC=3;
 
+    public const int ENEMY_ACTION_NOTHING=0;
+    public const int ENEMY_ACTION_LEFT=1;
+    public const int ENEMY_ACTION_DOWN_LEFT=2;
+    public const int ENEMY_ACTION_DOWN=3;
+    public const int ENEMY_ACTION_DOWN_RIGHT=4;
+    public const int ENEMY_ACTION_RIGHT=5;
+
     private List<BattleMapTile> battleMapTiles = new List<BattleMapTile>();
     
     void Start() {
@@ -80,12 +94,14 @@ public class GameManager : MonoBehaviour {
 
     void Update() {
         if (!paused) {
-            timeRemainingInTic-=Time.deltaTime;
+            timeRemainingInTic-=Time.deltaTime*gameSpeed;
         }
 
         if(timeRemainingInTic<=0f) {
             //TODO - do end of tic actions
             runPlayerTicAction();
+
+            runEnemyTicAction();
 
             timeRemainingInTic=10f;
             updateUI();
@@ -141,6 +157,12 @@ public class GameManager : MonoBehaviour {
         bool ffActive = (paused || gameSpeed!=2f);
         fastForwardButton.transform.GetComponent<Button>().interactable=ffActive;
         fastForwardButton.GetComponent<Image>().color=(ffActive ? activeColour : inactiveColour);
+
+        for (int x=0; x<3; x++) {
+            int action=enemyActions[x];
+            Sprite enemyActionSprite = (action>-1 ? enemyActionSprites[action] : allEnemies[Mathf.Abs(action+1)].sprite);
+            enemyActionUI[x].sprite=enemyActionSprite;
+        }
     }
 
     public int getScience() {
@@ -186,12 +208,6 @@ public class GameManager : MonoBehaviour {
         return newObject;
     }
 
-    //Spawn an enemy
-    public BattlefieldObjectSO getRandomEnemy(int enemyLevel) {
-        //TODO - handle spawning different enemies
-        return allEnemies[0];
-    }
-
     //Gets a list of random enemies or towers
     public List<BattlefieldObjectSO> getRandomObjects(int count, ObjectOwner towerOrEnemy, int objectLevel) {
         //Filter out towers that don't match filters
@@ -211,6 +227,24 @@ public class GameManager : MonoBehaviour {
         }
 
         return returnObjects;
+    }
+
+    //Gets a list of random enemies or towers
+    public int getRandomEnemy(int enemyLevel) {
+        //Filter out towers that don't match filters
+        List<int> enemiesMatchingFilter = new List<int>();
+        int upto=0;
+        foreach(BattlefieldObjectSO thisEnemy in allEnemies) {
+            if (enemyLevel!=thisEnemy.level) {
+                upto++;
+                continue;
+            }
+            enemiesMatchingFilter.Add(upto);
+            upto++;
+        };
+
+        int randomElement=UnityEngine.Random.Range(0, enemiesMatchingFilter.Count);
+        return enemiesMatchingFilter[randomElement];
     }
 
     public void spawnEnemyInTopRow(BattlefieldObjectSO enemySO) {
@@ -296,8 +330,64 @@ public class GameManager : MonoBehaviour {
 
     }
 
+    public void playObjectInSlot(int slot) {
+        if (selectedTower==null) {
+            return;
+        }
 
-    //Events
+        if (battleMapTiles[slot].moveObjectToTile(selectedTower)) {
+            selectedTower=null;
+        }
+    }
+
+
+
+    /****************************************************************
+                            ENEMY HANDLING
+    ****************************************************************/
+
+    /*
+    public const int ENEMY_ACTION_NOTHING=0;
+    public const int ENEMY_ACTION_LEFT=1;
+    public const int ENEMY_ACTION_DOWN_LEFT=2;
+    public const int ENEMY_ACTION_DOWN=3;
+    public const int ENEMY_ACTION_DOWN_RIGHT=4;
+    public const int ENEMY_ACTION_RIGHT=5;
+    
+    
+    */
+
+    public void runEnemyTicAction() {
+    
+    
+        float chanceOfSpawn=.5f;
+        float spawnRoll=Random.Range(0f,1f);
+        int nextAction=0;
+        if (spawnRoll<=chanceOfSpawn) {
+            nextAction = -getRandomEnemy(1)-1;
+        }
+        else {
+            nextAction=UnityEngine.Random.Range(1, 5);
+        }
+
+        //Shuffle Actions
+        enemyActions[0]=enemyActions[1];
+        enemyActions[1]=enemyActions[2];
+        enemyActions[2]=nextAction;
+    }
+
+
+
+
+
+
+
+
+
+    /****************************************************************
+                                EVENTS
+    ****************************************************************/
+
     public void clickPlayerActionButton(int buttonClicked) {
         nextPlayerAction=buttonClicked;
         updateUI();

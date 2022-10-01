@@ -18,10 +18,18 @@ public class BattleMapTile {
         updateUI();
     }
 
+    //TODO - needs to check that nothing's in the tile already
     public BattlefieldObject createObjectInTile(BattlefieldObjectSO so) {
         battlefieldObject=gameManager.spawnObjectFromSO(so);
         positionObject();
         return battlefieldObject;
+    }
+
+    //TODO - needs to check that nothing's in the tile already
+    public bool moveObjectToTile(BattlefieldObject newObject) {
+        battlefieldObject=newObject;
+        positionObject();
+        return true;
     }
 
     public void positionObject() {

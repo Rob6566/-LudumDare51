@@ -10,13 +10,13 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 18a25acfed7c4434496f046df8ff238f, type: 3}
-  m_Name: 1 - Goblin
+  m_Name: 2 - Vampire
   m_EditorClassIdentifier: 
   objectOwner: 0
-  name: Goblin
+  name: Vampire
   desc: 
-  sprite: {fileID: 21300000, guid: d109393362b6747aa95e7858c13cf515, type: 3}
-  hp: 150
-  damage: 20
+  sprite: {fileID: 21300000, guid: 9f21bc3a382ca43ad979c27e9efe52ce, type: 3}
+  hp: 300
+  damage: 10
   level: 1
   range: 0

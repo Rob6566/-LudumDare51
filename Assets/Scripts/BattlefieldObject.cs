@@ -25,6 +25,7 @@ public class BattlefieldObject
     public Image image;
     TextMeshProUGUI txtHP;
     TextMeshProUGUI txtPower;
+    public GameObject imgPower;
 
     public void init(GameManager newGameManager, GameObject gameObject, GameObject container, BattlefieldObjectSO newBattlefieldObjectSO) {
         gameManager=newGameManager;
@@ -38,10 +39,16 @@ public class BattlefieldObject
         rootGameObject=gameObject;
 
         image=rootGameObject.transform.GetComponent<Image>();
-        txtPower=rootGameObject.transform.GetChild(0).GetComponent<TextMeshProUGUI>();
-        txtHP=rootGameObject.transform.GetChild(1).GetComponent<TextMeshProUGUI>();
+        imgPower =rootGameObject.transform.GetChild(1).gameObject;
+        
+        txtPower=rootGameObject.transform.GetChild(2).GetComponent<TextMeshProUGUI>();
+        txtHP=rootGameObject.transform.GetChild(3).GetComponent<TextMeshProUGUI>();
 
         image.sprite=newBattlefieldObjectSO.sprite;
+
+
+        ObjectHandler eventHandler = rootGameObject.GetComponentInChildren<ObjectHandler>();
+        eventHandler.init(this, gameManager);
 
         updateUI();
         //assignUIControls()
@@ -49,7 +56,9 @@ public class BattlefieldObject
 
 
     public void updateUI() {
-        txtPower.text=damage.ToString();
+        
+        txtPower.text=(damage>0 ? damage.ToString() : "");
         txtHP.text=hp.ToString();
+        imgPower.SetActive(damage>0);
     }
 }

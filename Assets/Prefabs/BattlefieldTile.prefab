@@ -11,6 +11,8 @@ GameObject:
   - component: {fileID: 5940776190524743147}
   - component: {fileID: 5940776190524743145}
   - component: {fileID: 5940776190524743144}
+  - component: {fileID: 2599097436078847863}
+  - component: {fileID: 630316280228707626}
   m_Layer: 5
   m_Name: BattlefieldTile
   m_TagString: Untagged
@@ -75,3 +77,27 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!114 &2599097436078847863
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5940776190524743146}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 62f87df8eb62b445b938bf41b617d18f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+--- !u!225 &630316280228707626
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 5940776190524743146}
+  m_Enabled: 0
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
