@@ -7,6 +7,7 @@ using UnityEngine.UI;
 public class BattlefieldObjectSO : ScriptableObject {
     public ObjectOwner objectOwner;
     public string name;
+    public string desc;
     public Sprite sprite;
     public int hp;
     public int damage;

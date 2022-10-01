@@ -26,14 +26,30 @@ public class GameManager : MonoBehaviour {
     public int basicTowerCost=10;
     public int researchCost=10;
     public int unplacedTowerSlots=2;
+    public int basicTowersToChooseFrom=2;
 
+    //Values that change a lot
     public float timeRemainingInTic=10f;
     public bool paused=true;
+    public List<BattlefieldObjectSO> currentSelectableTowers = new List<BattlefieldObjectSO>(); 
 
     public List<BattlefieldObjectSO> allEnemies = new List<BattlefieldObjectSO>(); 
+    public List<BattlefieldObjectSO> allTowers = new List<BattlefieldObjectSO>(); 
     public List<Sprite> playerActionIcons = new List<Sprite>(); 
     public List<TextMeshProUGUI> playerActionLabels = new List<TextMeshProUGUI>(); 
-    public List<GameObject> unplacedTowerContainers = new List<GameObject>(); 
+    public List<GameObject> unplacedTowerContainers = new List<GameObject>();
+    public List<GameObject> playerActionButtons = new List<GameObject>();
+
+    
+    //Selection overlay
+    public GameObject overlay;
+    public TextMeshProUGUI overlayTitleTXT;
+    public List<GameObject> overlayObjects = new List<GameObject>();
+    public List<TextMeshProUGUI> overlayTitles = new List<TextMeshProUGUI>();
+    public List<Image> overlayImages = new List<Image>();
+    public List<TextMeshProUGUI> overlayDescs = new List<TextMeshProUGUI>();
+
+
     
     public const int BATTLEFIELD_WIDTH=10;
     public const int BATTLEFIELD_HEIGHT=10;
@@ -49,6 +65,8 @@ public class GameManager : MonoBehaviour {
     
     void Start() {
         createBattlefield();
+        overlay.SetActive(false);
+        setActionButtonAvailability();
         updateUI();
     }
 
@@ -147,6 +165,27 @@ public class GameManager : MonoBehaviour {
         return allEnemies[0];
     }
 
+    //Gets a list of random enemies or towers
+    public List<BattlefieldObjectSO> getRandomObjects(int count, ObjectOwner towerOrEnemy, int objectLevel) {
+        //Filter out towers that don't match filters
+        List<BattlefieldObjectSO> objectsMatchingFilter = new List<BattlefieldObjectSO>();
+        foreach(BattlefieldObjectSO thisObject in allTowers) {
+            if (objectLevel!=thisObject.level) {
+                continue;
+            }
+            objectsMatchingFilter.Add(thisObject);
+        };
+
+        List<BattlefieldObjectSO> returnObjects = new List<BattlefieldObjectSO>();
+        for(int i = 1; i<=count && objectsMatchingFilter.Count>0; i++) {
+            int randomElement=UnityEngine.Random.Range(0, objectsMatchingFilter.Count);
+            returnObjects.Add(objectsMatchingFilter[randomElement]);
+            objectsMatchingFilter.Remove(objectsMatchingFilter[randomElement]);
+        }
+
+        return returnObjects;
+    }
+
     public void spawnEnemyInTopRow(BattlefieldObjectSO enemySO) {
         int slot=UnityEngine.Random.Range(90, 100);
         battleMapTiles[slot].createObjectInTile(enemySO); //TODO - check if the slot is filled first. If it has a player structure, destroy it.
@@ -165,19 +204,78 @@ public class GameManager : MonoBehaviour {
             //TODO
         }
         else if(nextPlayerAction==ACTION_BUILD_BASIC) {
-            //TODO
+            populateAndShowOverlay(ACTION_BUILD_BASIC, basicTowersToChooseFrom);
         }
+        setActionButtonAvailability();
     }
 
+    public void populateAndShowOverlay(int actionType, int optionCount) {
 
+        foreach(GameObject thisButton in playerActionButtons) {
+            thisButton.GetComponent<Button>().interactable=false;
+        }
+
+        for(int x=0; x<3; x++) {
+             overlayObjects[x].SetActive(x<optionCount);
+        }
+
+        if(nextPlayerAction==ACTION_BUILD_BASIC) {
+            overlayTitleTXT.text="Construct Basic Tower";
+            currentSelectableTowers = getRandomObjects(optionCount, ObjectOwner.player, 1); 
+            int optionUpto=0;
+            foreach (BattlefieldObjectSO thisObject in currentSelectableTowers) {
+                overlayTitles[optionUpto].text=thisObject.name;
+                overlayImages[optionUpto].sprite=thisObject.sprite;
+                overlayDescs[optionUpto].text=thisObject.desc;
+                optionUpto++;
+            }
+        }
+
+        overlay.SetActive(true);
+        paused=true;
+    }
 
 
 
 
     //Events
     public void clickPlayerActionButton(int buttonClicked) {
-        Debug.Log(buttonClicked);
         nextPlayerAction=buttonClicked;
         updateUI();
+    }
+
+
+    public void clickOptionButton(int buttonClicked) {
+        overlay.SetActive(false);
+        paused=false;
+        setActionButtonAvailability();
+
+        clickPlayerActionButton(ACTION_WORK);
+    }
+
+    //Sets option availabilty based on whether we meet the requirements
+    public void setActionButtonAvailability() {
+
+        Color32 activeColour= new Color32(168,168,168, 255);
+        Color32 inactiveColour= new Color32(65,65,65, 255);
+
+
+        //TODO - enable/disable buttons
+        foreach(GameObject thisButton in playerActionButtons) {
+            thisButton.GetComponent<Button>().interactable=true;
+        }
+
+        if (science<researchCost) {
+            playerActionButtons[ACTION_TINKER].GetComponent<Button>().interactable=false;
+        }
+        
+        if (gold<basicTowerCost) {
+            playerActionButtons[ACTION_BUILD_BASIC].GetComponent<Button>().interactable=false;
+        }
+
+        foreach(GameObject thisButton in playerActionButtons) {
+            thisButton.GetComponent<Image>().color=(thisButton.GetComponent<Button>().interactable ? activeColour : inactiveColour);
+        }    
+
     }
 }

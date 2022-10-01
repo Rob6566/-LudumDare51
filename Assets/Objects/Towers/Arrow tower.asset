@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   objectOwner: 1
   name: Arrow tower
+  desc: A weak basic tower with a decent range
   sprite: {fileID: 21300000, guid: a49b041b7bc3d43d8884f1eb400f3d1d, type: 3}
   hp: 80
   damage: 50
