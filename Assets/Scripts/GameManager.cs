@@ -65,6 +65,7 @@ public class GameManager : MonoBehaviour {
     public List<TextMeshProUGUI> overlayDescs = new List<TextMeshProUGUI>();
 
 
+    List<List<int>> ENEMY_MOVEMENT_SEQUENCES=new List<List<int>>(); //Sequencing of enemy movements per direction to minimise collisions
     
     public const int BATTLEFIELD_WIDTH=10;
     public const int BATTLEFIELD_HEIGHT=10;
@@ -90,6 +91,7 @@ public class GameManager : MonoBehaviour {
         overlay.SetActive(false);
         setActionButtonAvailability();
         updateUI();
+        ENEMY_MOVEMENT_SEQUENCES=getEnemyMovementSequences();
     }
 
     void Update() {
@@ -97,10 +99,10 @@ public class GameManager : MonoBehaviour {
             timeRemainingInTic-=Time.deltaTime*gameSpeed;
         }
 
+        //Our timer just hit 0. Do our player/enemy actions
         if(timeRemainingInTic<=0f) {
-            //TODO - do end of tic actions
+            resetCombatVars();
             runPlayerTicAction();
-
             runEnemyTicAction();
 
             timeRemainingInTic=10f;
@@ -127,9 +129,9 @@ public class GameManager : MonoBehaviour {
             }
           }
 
+          /*spawnEnemyInTopRow(allEnemies[0]);
           spawnEnemyInTopRow(allEnemies[0]);
-          spawnEnemyInTopRow(allEnemies[0]);
-          spawnEnemyInTopRow(allEnemies[0]);
+          spawnEnemyInTopRow(allEnemies[0]);*/
     }
 
 
@@ -340,6 +342,17 @@ public class GameManager : MonoBehaviour {
         }
     }
 
+    
+    public void resetCombatVars() {
+        foreach (BattleMapTile tile in battleMapTiles) {
+            if (!tile.hasObject()) {
+                continue;
+            }
+            tile.battlefieldObject.justAttacked=false;
+            tile.battlefieldObject.justMoved=false;
+        }
+    }
+
 
 
     /****************************************************************
@@ -353,13 +366,21 @@ public class GameManager : MonoBehaviour {
     public const int ENEMY_ACTION_DOWN=3;
     public const int ENEMY_ACTION_DOWN_RIGHT=4;
     public const int ENEMY_ACTION_RIGHT=5;
-    
-    
     */
 
     public void runEnemyTicAction() {
     
-    
+        //Run this action
+        int thisAction=enemyActions[0];
+        if (thisAction<0) {
+            spawnEnemyInTopRow(allEnemies[thisAction+1]);
+        }
+        else if(thisAction>ENEMY_ACTION_NOTHING) {
+            moveEnemiesInDirection(thisAction);
+        }
+        
+        
+        //Calculate next action
         float chanceOfSpawn=.5f;
         float spawnRoll=Random.Range(0f,1f);
         int nextAction=0;
@@ -374,6 +395,98 @@ public class GameManager : MonoBehaviour {
         enemyActions[0]=enemyActions[1];
         enemyActions[1]=enemyActions[2];
         enemyActions[2]=nextAction;
+    }
+
+    //Since all enemies move in the same diretion simultaneously, we need to process them in a specific sequence to minimise collissions
+    //CLEANUP - make this work for grids that aren't 10x10
+    public List<List<int>> getEnemyMovementSequences() {
+        List<List<int>> returnList = new List<List<int>>();
+        returnList.Add(new List<int>()); //A dummy list to offset our IDs for ENEMY_ACTION_NOTHING
+        for (int direction=0; direction<=ENEMY_ACTION_RIGHT; direction++) {
+            List<int> thisDirectionList = new List<int>();
+            if (direction==ENEMY_ACTION_LEFT || direction==ENEMY_ACTION_DOWN_LEFT) {
+                for(int x=9; x>=0; x--) {
+                    for(int y=0; x<=9; y++) {
+                        thisDirectionList.Add(x+(y*10));
+                    }
+                }
+            }
+            else if (direction==ENEMY_ACTION_RIGHT || direction==ENEMY_ACTION_DOWN_RIGHT) {
+                for(int x=0; x<=9; x++) {
+                    for(int y=0; x<=9; y++) {
+                        thisDirectionList.Add(x+(y*10));
+                    }
+                }
+            }
+            else if (direction==ENEMY_ACTION_DOWN) {
+                for(int y=0; y<=9; y++) {
+                    for(int x=0; x<=9; x++) {
+                        thisDirectionList.Add(x+(y*10));
+                    }
+                }
+            }
+            returnList.Add(thisDirectionList);
+        }
+        return returnList;
+    }
+
+    //Move all enemies in given a direction during the enemies actiom
+    public void moveEnemiesInDirection(int direction) {
+        if(direction<=ENEMY_ACTION_NOTHING || direction>ENEMY_ACTION_RIGHT) {
+            return;
+        }
+
+        Debug.Log("Trying to move enemies in direction: "+direction+" Count of direction array: "+ENEMY_MOVEMENT_SEQUENCES.Count);
+
+        List<int> tilesToMove = ENEMY_MOVEMENT_SEQUENCES[direction];
+
+        foreach (int tileID in tilesToMove) {
+            BattleMapTile sourceTile=battleMapTiles[tileID];
+            if (!sourceTile.hasEnemyObject()) {
+                continue; //No enemy in tile
+            }
+
+            int tileInDirection=getTileInDirection(tileID, direction);
+            if (tileInDirection<0) {
+                continue;  //Blocked by edge of map
+            }
+
+            BattleMapTile destinationTile=battleMapTiles[tileInDirection];            
+            if (destinationTile.hasObject()) {
+                continue; //Blocked by object
+            }
+
+            sourceTile.moveExistingObjectToAnotherTile(destinationTile);
+        }
+    }
+
+
+    //Gets the index of a tile adjacent to a given one, in a given direction (or null, if there's no tile in that direction)
+    public int getTileInDirection(int sourceTile, int direction) {
+        bool onLeftEdge=(sourceTile % 10 == 0);
+        bool onRightEdge=((sourceTile+1) % 10 == 0);
+        bool onBottomEdge=(sourceTile<10);
+
+        if (direction==ENEMY_ACTION_LEFT) {
+            return (onLeftEdge ? -1 : (sourceTile-1));
+        } 
+        else if(direction==ENEMY_ACTION_RIGHT) {
+            return (onRightEdge ? -1 : sourceTile+1);
+        }
+        else if(onBottomEdge) {
+            return -1;
+        }
+        else if(direction==ENEMY_ACTION_DOWN_LEFT) {
+            return (onLeftEdge ? -1 : sourceTile-11);
+        }
+        else if(direction==ENEMY_ACTION_DOWN_RIGHT) {
+            return (onRightEdge ? -1 : sourceTile-9);
+        }
+        else if(direction==ENEMY_ACTION_DOWN) {
+            return sourceTile-10;
+        }
+
+        return -1;
     }
 
 

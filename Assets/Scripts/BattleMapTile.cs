@@ -32,6 +32,33 @@ public class BattleMapTile {
         return true;
     }
 
+    public void moveExistingObjectToAnotherTile(BattleMapTile newTile) {
+        battlefieldObject.justMoved=true;
+        newTile.moveObjectToTile(battlefieldObject);
+        battlefieldObject=null;
+    }
+
+    public bool hasEnemyObject() {
+        if (battlefieldObject==null) {
+            return false;
+        }
+
+        return battlefieldObject.objectOwner==ObjectOwner.enemy;
+    }
+    
+
+    public bool hasPlayerObject() {
+        if (battlefieldObject==null) {
+            return false;
+        }
+
+        return battlefieldObject.objectOwner==ObjectOwner.player;
+    }
+
+    public bool hasObject() {
+        return !(battlefieldObject==null);
+    }
+
     public void positionObject() {
         Transform objectTransform=battlefieldObject.rootGameObject.transform;
         objectTransform.SetParent(gameObject.transform);

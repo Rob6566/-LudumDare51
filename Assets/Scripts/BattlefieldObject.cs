@@ -27,6 +27,10 @@ public class BattlefieldObject
     TextMeshProUGUI txtPower;
     public GameObject imgPower;
 
+    //Tracks what the tile did in the latest action
+    public bool justMoved=false;
+    public bool justAttacked=false;
+
     public void init(GameManager newGameManager, GameObject gameObject, GameObject container, BattlefieldObjectSO newBattlefieldObjectSO) {
         gameManager=newGameManager;
         hp=newBattlefieldObjectSO.hp;
