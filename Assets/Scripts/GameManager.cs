@@ -4,6 +4,8 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 
+//TODO - fast forward button
+
 public enum ObjectOwner {enemy, player};
 
 public class GameManager : MonoBehaviour {
@@ -27,6 +29,12 @@ public class GameManager : MonoBehaviour {
     public int researchCost=10;
     public int unplacedTowerSlots=2;
     public int basicTowersToChooseFrom=2;
+    public float gameSpeed=1f;
+
+
+    public GameObject pauseButton;
+    public GameObject playButton;
+    public GameObject fastForwardButton;
 
     //Values that change a lot
     public float timeRemainingInTic=10f;
@@ -86,6 +94,11 @@ public class GameManager : MonoBehaviour {
         timerUI.text=(paused ? "[" : "")+Mathf.RoundToInt(timeRemainingInTic+.5f).ToString()+(paused ? "]" : "");
     }
 
+    public void setPaused(bool newPaused) {
+        paused=newPaused;
+        updateUI();
+    }
+
     //TODO - array of tower upgrade modifiers
 
 
@@ -105,6 +118,9 @@ public class GameManager : MonoBehaviour {
 
 
     public void updateUI() {
+        Color32 activeColour= new Color32(168,168,168, 255); //CLEANUP - constant
+        Color32 inactiveColour= new Color32(65,65,65, 255);
+
         goldUI.text="Gold: "+gold.ToString();
         scienceUI.text="Science: "+science.ToString();
 
@@ -114,6 +130,17 @@ public class GameManager : MonoBehaviour {
         playerActionLabels[ACTION_STUDY].text="Study (+"+scienceIncome+" science)";
         playerActionLabels[ACTION_TINKER].text="Tinker (discover an upgrade)\n (-"+researchCost+" science)";
         playerActionLabels[ACTION_BUILD_BASIC].text="Build basic tower\n (-"+basicTowerCost+" gold)";
+
+        pauseButton.transform.GetComponent<Button>().interactable=!paused;
+        pauseButton.GetComponent<Image>().color=(paused ? inactiveColour : activeColour);
+
+        bool playActive = (paused || gameSpeed!=1f);
+        playButton.transform.GetComponent<Button>().interactable=playActive;
+        playButton.GetComponent<Image>().color=(playActive ? activeColour : inactiveColour);
+
+        bool ffActive = (paused || gameSpeed!=2f);
+        fastForwardButton.transform.GetComponent<Button>().interactable=ffActive;
+        fastForwardButton.GetComponent<Image>().color=(ffActive ? activeColour : inactiveColour);
     }
 
     public int getScience() {
@@ -220,7 +247,7 @@ public class GameManager : MonoBehaviour {
         }
 
         if(nextPlayerAction==ACTION_BUILD_BASIC) {
-            overlayTitleTXT.text="Construct Basic Tower";
+            overlayTitleTXT.text="Build Basic Tower";
             currentSelectableTowers = getRandomObjects(optionCount, ObjectOwner.player, 1); 
             int optionUpto=0;
             foreach (BattlefieldObjectSO thisObject in currentSelectableTowers) {
@@ -232,25 +259,7 @@ public class GameManager : MonoBehaviour {
         }
 
         overlay.SetActive(true);
-        paused=true;
-    }
-
-
-
-
-    //Events
-    public void clickPlayerActionButton(int buttonClicked) {
-        nextPlayerAction=buttonClicked;
-        updateUI();
-    }
-
-
-    public void clickOptionButton(int buttonClicked) {
-        overlay.SetActive(false);
-        paused=false;
-        setActionButtonAvailability();
-
-        clickPlayerActionButton(ACTION_WORK);
+        setPaused(true);
     }
 
     //Sets option availabilty based on whether we meet the requirements
@@ -268,14 +277,75 @@ public class GameManager : MonoBehaviour {
         if (science<researchCost) {
             playerActionButtons[ACTION_TINKER].GetComponent<Button>().interactable=false;
         }
-        
-        if (gold<basicTowerCost) {
+
+        bool availableTowerContainers=false;
+        foreach(GameObject towerContainer in unplacedTowerContainers) {
+            if (towerContainer.transform.childCount==0) {
+                availableTowerContainers=true;
+            }
+        }
+
+        if (gold<basicTowerCost || !availableTowerContainers) {
             playerActionButtons[ACTION_BUILD_BASIC].GetComponent<Button>().interactable=false;
         }
+        
 
         foreach(GameObject thisButton in playerActionButtons) {
             thisButton.GetComponent<Image>().color=(thisButton.GetComponent<Button>().interactable ? activeColour : inactiveColour);
         }    
 
+    }
+
+
+    //Events
+    public void clickPlayerActionButton(int buttonClicked) {
+        nextPlayerAction=buttonClicked;
+        updateUI();
+    }
+
+
+    public void clickOptionButton(int buttonClicked) {
+        overlay.SetActive(false);
+        setPaused(false);
+        setActionButtonAvailability();
+
+        if (nextPlayerAction==ACTION_BUILD_BASIC) {
+           createTowerAndMakeAvailable(currentSelectableTowers[buttonClicked]);
+        }
+
+        clickPlayerActionButton(ACTION_WORK);
+    }
+
+    public void createTowerAndMakeAvailable(BattlefieldObjectSO newTowerSO) {
+        BattlefieldObject newTower=spawnObjectFromSO(newTowerSO);   
+        foreach(GameObject towerContainer in unplacedTowerContainers) {
+            Transform containerTransform=towerContainer.transform;
+            if (containerTransform.childCount==0) {
+                Transform objectTransform=newTower.rootGameObject.transform;
+                objectTransform.SetParent(containerTransform.transform);
+                objectTransform.localPosition=new Vector3(0, 0, 0);
+                objectTransform.localScale=new Vector3(1,1,1);
+                break;
+            }
+        }
+
+        setActionButtonAvailability();
+    }
+
+    public void clickPauseButton() {
+        setPaused(true);
+        updateUI();
+    }
+
+    public void clickPlayButton() {
+        setPaused(false);
+        gameSpeed=1f;
+        updateUI();
+    }
+
+    public void clickFastForwardButton() {
+        setPaused(false);
+        gameSpeed=2f;
+        updateUI();
     }
 }
