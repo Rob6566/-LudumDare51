@@ -12,11 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18a25acfed7c4434496f046df8ff238f, type: 3}
   m_Name: 2 - Vampire
   m_EditorClassIdentifier: 
+  towerTypeID: 0
   objectOwner: 0
   name: Vampire
   desc: 
   sprite: {fileID: 21300000, guid: 9f21bc3a382ca43ad979c27e9efe52ce, type: 3}
-  hp: 300
+  hp: 200
   damage: 10
   level: 1
   range: 0
+  AOE: 0

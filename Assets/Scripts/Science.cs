@@ -7,7 +7,7 @@ using UnityEngine.UI;
 //A science class. Abstract superclass - we'll be implementing abilities in sub-classes
 public class Science
 {
-    private GameManager gameManager;
+    protected GameManager gameManager;
     public ScienceSO scienceSO;
     public Sprite sprite;
     public string name;

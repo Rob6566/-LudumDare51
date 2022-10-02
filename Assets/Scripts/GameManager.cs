@@ -22,6 +22,11 @@ public class GameManager : MonoBehaviour {
     [SerializeField] TextMeshProUGUI scienceUI;
     [SerializeField] TextMeshProUGUI timerUI;
 
+
+    //Audio
+    [SerializeField] List<AudioClip> sounds;
+    [SerializeField] AudioSource audioSource;
+
     public Canvas canvas;
 
     public int gold=0;
@@ -30,9 +35,9 @@ public class GameManager : MonoBehaviour {
 
     public int goldIncome=10;
     public int scienceIncome=10;
-    public int researchIncrementalCost=5;
+    public int researchIncrementalCost=1;
     public int basicTowerCost=10;
-    public int basicTowerIncrementalCost=5;
+    public int basicTowerIncrementalCost=1;
     public int researchCost=10;
     public int unplacedTowerSlots=2;
     public int basicTowersToChooseFrom=2;
@@ -110,6 +115,16 @@ public class GameManager : MonoBehaviour {
     public const int ENEMY_ACTION_DOWN=3;
     public const int ENEMY_ACTION_DOWN_RIGHT=4;
     public const int ENEMY_ACTION_RIGHT=5;
+    public const int ENEMY_ACTION_UP=6;
+
+    public const int SOUND_CLICK=8;
+        public const float SOUND_CLICK_VOLUME=.15f;
+    public const int SOUND_SCIENCE=6;
+        public const float SOUND_SCIENCE_VOLUME=.5f;
+    public const int SOUND_PLACE_TOWER=7;
+        public const float SOUND_PLACE_TOWER_VOLUME=.5f;
+    public const int SOUND_TIC=9;
+        public const float SOUND_TIC_VOLUME=.2f;
 
     public const float NORMAL_GAME_SPEED=1f;
     public const float FAST_GAME_SPEED=5f;
@@ -135,6 +150,7 @@ public class GameManager : MonoBehaviour {
 
         //Our timer just hit 0. Do our player/enemy actions
         if(timeRemainingInTic<=0f) {
+            playSound(SOUND_TIC, SOUND_TIC_VOLUME);
             ticsSurvived++;
             resetCombatVars();
             
@@ -303,9 +319,17 @@ public class GameManager : MonoBehaviour {
         List<Science> returnSciences = new List<Science>();
 
         for(int x=0; x<count; x++) {
-            int randomElement=UnityEngine.Random.Range(0, allSciences.Count);
-            Science newScience=createScienceFromSO(allSciences[randomElement]); 
-            returnSciences.Add(newScience);
+            float upgradeRoll=Random.Range(0f,1f); 
+            //40% of sciences will be Upgrade
+            if (upgradeRoll<=0.4f) {
+                Science newScience=createScienceFromSO(upgradeScience); 
+                returnSciences.Add(newScience);
+            }
+            else {
+                int randomElement=UnityEngine.Random.Range(0, allSciences.Count);
+                Science newScience=createScienceFromSO(allSciences[randomElement]); 
+                returnSciences.Add(newScience);
+            }
         }
         return returnSciences;
     }
@@ -475,6 +499,7 @@ public class GameManager : MonoBehaviour {
 
         if (battleMapTiles[slot].moveObjectToTile(selectedTower)) {
             selectedTower=null;
+            playSound(SOUND_PLACE_TOWER, SOUND_PLACE_TOWER_VOLUME);
         }
     }
 
@@ -523,21 +548,18 @@ public class GameManager : MonoBehaviour {
         }  
     }
 
+
+    
+    public void playSound(int selectedSound, float volume) {
+        audioSource.PlayOneShot(sounds[selectedSound], volume);
+    }
+
     
 
 
     /****************************************************************
                             ENEMY HANDLING
     ****************************************************************/
-
-    /*
-    public const int ENEMY_ACTION_NOTHING=0;
-    public const int ENEMY_ACTION_LEFT=1;
-    public const int ENEMY_ACTION_DOWN_LEFT=2;
-    public const int ENEMY_ACTION_DOWN=3;
-    public const int ENEMY_ACTION_DOWN_RIGHT=4;
-    public const int ENEMY_ACTION_RIGHT=5;
-    */
 
     public void runEnemyTicAction() {
     
@@ -573,7 +595,7 @@ public class GameManager : MonoBehaviour {
     public List<List<int>> getEnemyMovementSequences() {
         List<List<int>> returnList = new List<List<int>>();
         //returnList.Add(new List<int>()); //A dummy list to offset our IDs for ENEMY_ACTION_NOTHING
-        for (int direction=0; direction<=ENEMY_ACTION_RIGHT; direction++) {
+        for (int direction=0; direction<=ENEMY_ACTION_UP; direction++) {
             List<int> thisDirectionList = new List<int>();
             if (direction==ENEMY_ACTION_LEFT || direction==ENEMY_ACTION_DOWN_LEFT) {
                 for(int x=0; x<=9; x++) {
@@ -596,6 +618,13 @@ public class GameManager : MonoBehaviour {
                     }
                 }
             }
+            else if (direction==ENEMY_ACTION_UP) {
+                for(int y=9; y>=0; y--) {
+                    for(int x=0; x<=9; x++) {
+                        thisDirectionList.Add(x+(y*10));
+                    }
+                }
+            }
             returnList.Add(thisDirectionList);
         }
         return returnList;
@@ -603,7 +632,7 @@ public class GameManager : MonoBehaviour {
 
     //Move all enemies in given a direction during the enemies actiom
     public void moveEnemiesInDirection(int direction) {
-        if(direction<=ENEMY_ACTION_NOTHING || direction>ENEMY_ACTION_RIGHT) {
+        if(direction<=ENEMY_ACTION_NOTHING || direction>ENEMY_ACTION_UP) {
             return;
         }
 
@@ -637,6 +666,7 @@ public class GameManager : MonoBehaviour {
         bool onLeftEdge=(sourceTile % 10 == 0);
         bool onRightEdge=((sourceTile+1) % 10 == 0);
         bool onBottomEdge=(sourceTile<10);
+        bool onTopEdge=(sourceTile>89);
 
         if (direction==ENEMY_ACTION_LEFT) {
             return (onLeftEdge ? -1 : (sourceTile-1));
@@ -655,6 +685,9 @@ public class GameManager : MonoBehaviour {
         }
         else if(direction==ENEMY_ACTION_DOWN) {
             return sourceTile-10;
+        }
+        else if(direction==ENEMY_ACTION_UP && !onTopEdge) {
+            return sourceTile+10;
         }
 
         return -1;
@@ -692,6 +725,11 @@ public class GameManager : MonoBehaviour {
 
         if (nextPlayerAction==ACTION_BUILD_BASIC) {
            createTowerAndMakeAvailable(currentSelectableTowers[buttonClicked]);
+           playSound(SOUND_CLICK, SOUND_CLICK_VOLUME);
+        }
+        else if (nextPlayerAction==ACTION_TINKER) {
+            currentSelectableSciences[buttonClicked].onActivate();
+            playSound(SOUND_SCIENCE, SOUND_SCIENCE_VOLUME);
         }
 
         clickPlayerActionButton(ACTION_WORK);
@@ -716,18 +754,21 @@ public class GameManager : MonoBehaviour {
     public void clickPauseButton() {
         setPaused(true);
         updateUI();
+        playSound(SOUND_CLICK, SOUND_CLICK_VOLUME);
     }
 
     public void clickPlayButton() {
         setPaused(false);
         gameSpeed=NORMAL_GAME_SPEED;
         updateUI();
+        playSound(SOUND_CLICK, SOUND_CLICK_VOLUME);
     }
 
     public void clickFastForwardButton() {
         setPaused(false);
         gameSpeed=FAST_GAME_SPEED;
         updateUI();
+        playSound(SOUND_CLICK, SOUND_CLICK_VOLUME);
     }
 
     public void toggleStatsOverlay(bool showOverlay) {

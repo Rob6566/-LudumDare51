@@ -12,11 +12,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18a25acfed7c4434496f046df8ff238f, type: 3}
   m_Name: 1 - Goblin
   m_EditorClassIdentifier: 
+  towerTypeID: 0
   objectOwner: 0
   name: Goblin
   desc: 
   sprite: {fileID: 21300000, guid: d109393362b6747aa95e7858c13cf515, type: 3}
-  hp: 150
+  hp: 100
   damage: 20
   level: 1
   range: 0
+  AOE: 0
