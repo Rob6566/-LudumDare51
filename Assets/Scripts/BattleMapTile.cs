@@ -80,17 +80,33 @@ public class BattleMapTile {
     }
 
     public void updateUI() {
-        Debug.Log("UpdateUI for tile "+tilePosition);
-        Color32 colour= new Color32(180,180,180, 255);
+        Color32 tileColour= new Color32(180,180,180, 255);
+        Color32 indicatorColour= new Color32(180,180,180, 255);
         if (battlefieldObject!=null) {
             if (battlefieldObject.objectOwner==ObjectOwner.enemy) {
-                colour=new Color32(255,105,105, 255);
+                tileColour=new Color32(255,105,105, 255);
             }
             else {
-                colour=new Color32(103,244,103, 255);
+                tileColour=new Color32(103,244,103, 255);
+            }
+            indicatorColour=tileColour;
+        }
+        else {
+            if (towersInRange>2) {
+                indicatorColour=new Color32(103,244,103, 192);
+            }
+            else if(towersInRange>1) {
+                indicatorColour=new Color32(103,244,103, 129);
+            }
+            else if(towersInRange>0) {
+                indicatorColour=new Color32(103,244,103, 66);
+            }
+            else if(enemiesInRange>0) {
+                indicatorColour=new Color32(255,105,105, 127);
             }
         }
-        gameObject.GetComponent<Image>().color=colour;
+        gameObject.GetComponent<Image>().color=tileColour;
+        gameObject.transform.GetChild(0).GetComponent<Image>().color=indicatorColour;
     }
 
     //Get the x, y coords of the tile

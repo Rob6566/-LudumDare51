@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 using TMPro;
 
 //TODO - fast forward button
@@ -16,7 +17,7 @@ public class GameManager : MonoBehaviour {
     [SerializeField] List<Image> enemyActionUI = new List<Image>();
     [SerializeField] List<Sprite> enemyActionSprites = new List<Sprite>();
 
-
+    [SerializeField] List<GameObject> canvases = new List<GameObject>();
 
     [SerializeField] TextMeshProUGUI goldUI;
     [SerializeField] TextMeshProUGUI scienceUI;
@@ -43,6 +44,8 @@ public class GameManager : MonoBehaviour {
     public int basicTowersToChooseFrom=2;
     public int researchOptionsToChooseFrom=3;
     public float gameSpeed=1f;
+    
+    private bool gameOver=false;
 
 
     public GameObject pauseButton;
@@ -88,6 +91,7 @@ public class GameManager : MonoBehaviour {
     public int goldEarned=0;
     public int scienceEarned=0;
     public GameObject statsOverlay;
+    public GameObject loseOverlay;
     public TextMeshProUGUI ticsSurvivedUI;
     public TextMeshProUGUI killsUI;
     public TextMeshProUGUI towersLostUI;
@@ -95,6 +99,7 @@ public class GameManager : MonoBehaviour {
     public TextMeshProUGUI damageTakenUI;
     public TextMeshProUGUI goldEarnedUI;
     public TextMeshProUGUI scienceEarnedUI;
+    public TextMeshProUGUI statsButtonUI;
 
 
     List<List<int>> ENEMY_MOVEMENT_SEQUENCES=new List<List<int>>(); //Sequencing of enemy movements per direction to minimise collisions
@@ -136,10 +141,24 @@ public class GameManager : MonoBehaviour {
         createBattlefield();
         overlay.SetActive(false);
         statsOverlay.SetActive(false);
+        loseOverlay.SetActive(false);
         setActionButtonAvailability();
         initTowerModifiers();
         updateUI();
         ENEMY_MOVEMENT_SEQUENCES=getEnemyMovementSequences();
+        gameOver=false;
+        statsButtonUI.text="Close";
+        setActiveCanvas("TitleCanvas");
+        paused=true;
+    }
+
+    public void startGame() {
+        setActiveCanvas("GameCanvas");
+        paused=false;
+    }
+
+    public void startTutorial() {
+        setActiveCanvas("TutorialCanvas");
     }
 
     //Runs every frame. Does our countdown, and triggers countdonwn events if we've hit 0.
@@ -506,14 +525,14 @@ public class GameManager : MonoBehaviour {
     
     public void resetCombatVars() {
         foreach (BattleMapTile tile in battleMapTiles) {
+            tile.towersInRange=0;
+            tile.enemiesInRange=0;
             if (!tile.hasObject()) {
                 continue;
             }
             tile.battlefieldObject.justAttacked=false;
             tile.battlefieldObject.justMoved=false;
             tile.battlefieldObject.assignedDamage=0;
-            tile.towersInRange=0;
-            tile.enemiesInRange=0;
         }
     }
 
@@ -546,6 +565,9 @@ public class GameManager : MonoBehaviour {
             }
             tile.battlefieldObject.calculateTilesInRange();
         }  
+        foreach (BattleMapTile tile in battleMapTiles) {
+            tile.updateUI();
+        }
     }
 
 
@@ -581,7 +603,7 @@ public class GameManager : MonoBehaviour {
             nextAction = -getRandomEnemy(1)-1;
         }
         else {
-            nextAction=UnityEngine.Random.Range(1, 5);
+            nextAction=UnityEngine.Random.Range(1, 6);
         }
 
         //Shuffle Actions
@@ -642,6 +664,10 @@ public class GameManager : MonoBehaviour {
             BattleMapTile sourceTile=battleMapTiles[tileID];
             if (!sourceTile.hasEnemyObject()) {
                 continue; //No enemy in tile
+            }
+
+            if (tileID<10 && (direction==ENEMY_ACTION_DOWN_LEFT || direction==ENEMY_ACTION_DOWN || direction==ENEMY_ACTION_DOWN_RIGHT)) {
+                loseGame();
             }
 
             int tileInDirection=getTileInDirection(tileID, direction);
@@ -772,7 +798,27 @@ public class GameManager : MonoBehaviour {
     }
 
     public void toggleStatsOverlay(bool showOverlay) {
-        statsOverlay.SetActive(showOverlay);
-        setPaused(showOverlay);
+        if (gameOver && !showOverlay) {
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
+        else {
+            statsOverlay.SetActive(showOverlay);
+            setPaused(showOverlay);
+        }
     }
+
+
+
+    public void loseGame() {
+        toggleStatsOverlay(true);
+        loseOverlay.SetActive(true);
+        gameOver=true;
+        statsButtonUI.text="Try Again";
+    }
+
+     public void setActiveCanvas(string tag) {
+        canvases.ForEach((canvas) => {
+                canvas.SetActive(canvas.tag==tag);
+        });
+     }
 }
