@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18a25acfed7c4434496f046df8ff238f, type: 3}
   m_Name: Arrow tower
   m_EditorClassIdentifier: 
+  towerTypeID: 1
   objectOwner: 1
   name: Arrow tower
   desc: A weak basic tower with a decent range
@@ -20,3 +21,4 @@ MonoBehaviour:
   damage: 50
   level: 1
   range: 2
+  AOE: 0

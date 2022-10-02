@@ -6,6 +6,7 @@ using UnityEngine.EventSystems;
 public class ObjectHandler : MonoBehaviour, IDragHandler, IBeginDragHandler, IEndDragHandler, IPointerEnterHandler, IPointerExitHandler, IPointerClickHandler {
     private BattlefieldObject attachedObject;
     private GameManager gameManager;
+    private Vector3 positionBeforeDrag;
     //private GameObject hoverObject;
     
     private Transform dragPreviousTransform;
@@ -54,6 +55,8 @@ public class ObjectHandler : MonoBehaviour, IDragHandler, IBeginDragHandler, IEn
         
         dragPreviousTransform=attachedObject.rootGameObject.transform.parent;
         gameManager.selectedTower=attachedObject;
+
+        positionBeforeDrag=attachedObject.rootGameObject.transform.position;
     }
 
     //Dragging
@@ -73,6 +76,9 @@ public class ObjectHandler : MonoBehaviour, IDragHandler, IBeginDragHandler, IEn
         if (!allowedToDrag()) {
             return;
         }
+
+        this.transform.position=positionBeforeDrag;
+
        // GameObject cardUI=attachedCard.cardUI;
         attachedObject.rootGameObject.GetComponent<CanvasGroup>().blocksRaycasts=true;
         //gameManager.deckManager[1].refreshHandGroupUI();

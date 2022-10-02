@@ -12,6 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18a25acfed7c4434496f046df8ff238f, type: 3}
   m_Name: Brick tower
   m_EditorClassIdentifier: 
+  towerTypeID: 2
   objectOwner: 1
   name: Brick tower
   desc: Less tower, more brick. Some enemies feel threatened by its intelligence
@@ -21,3 +22,4 @@ MonoBehaviour:
   damage: 0
   level: 1
   range: 0
+  AOE: 0

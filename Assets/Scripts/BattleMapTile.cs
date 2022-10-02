@@ -10,6 +10,8 @@ public class BattleMapTile {
     public BattlefieldObject battlefieldObject;
     private GameManager gameManager;
     public GameObject gameObject;
+    public int towersInRange=0;
+    public int enemiesInRange=0;
 
     public void init(GameManager newGameManager, GameObject newGameObject, int newTilePosition) {
         gameManager=newGameManager;
@@ -20,6 +22,11 @@ public class BattleMapTile {
 
     //TODO - needs to check that nothing's in the tile already
     public BattlefieldObject createObjectInTile(BattlefieldObjectSO so) {
+        if (battlefieldObject!=null) {
+            battlefieldObject.Destroy();
+            battlefieldObject=null;
+        }
+
         battlefieldObject=gameManager.spawnObjectFromSO(so);
         positionObject();
         return battlefieldObject;
@@ -36,6 +43,7 @@ public class BattleMapTile {
         battlefieldObject.justMoved=true;
         newTile.moveObjectToTile(battlefieldObject);
         battlefieldObject=null;
+        updateUI();
     }
 
     public bool hasEnemyObject() {
@@ -66,6 +74,8 @@ public class BattleMapTile {
         objectTransform.localPosition=new Vector3(0, 0, 0);
         objectTransform.localScale=new Vector3(1,1,1);
 
+        battlefieldObject.tileID=tilePosition;
+
         updateUI();
     }
 
@@ -81,6 +91,39 @@ public class BattleMapTile {
             }
         }
         gameObject.GetComponent<Image>().color=colour;
+    }
+
+    //Get the x, y coords of the tile
+    public Vector2 getTileCoords() {
+        int x = tilePosition % 10; //CLEANUP
+        int y = (int)Mathf.Floor((tilePosition+1)/10);
+        return new Vector2(x, y);
+    }
+
+    public void takeDamage(int damage) {
+        if (battlefieldObject==null) {
+            return;
+        }
+
+        if (hasPlayerObject()) {
+            gameManager.damageTaken+=damage;
+        }
+        else {
+            gameManager.damageDealt+=damage;
+        }
+
+        battlefieldObject.takeDamage(damage);
+        if (battlefieldObject.hp<=0) {
+            if (hasPlayerObject()) {
+                gameManager.towersLost++;
+            }
+            else {
+                gameManager.kills++;
+            }
+            battlefieldObject.Destroy();
+            battlefieldObject=null;
+            updateUI();
+        }
     }
 
 }

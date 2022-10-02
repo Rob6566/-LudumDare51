@@ -30,10 +30,13 @@ public class GameManager : MonoBehaviour {
 
     public int goldIncome=10;
     public int scienceIncome=10;
+    public int researchIncrementalCost=5;
     public int basicTowerCost=10;
+    public int basicTowerIncrementalCost=5;
     public int researchCost=10;
     public int unplacedTowerSlots=2;
     public int basicTowersToChooseFrom=2;
+    public int researchOptionsToChooseFrom=3;
     public float gameSpeed=1f;
 
 
@@ -45,11 +48,14 @@ public class GameManager : MonoBehaviour {
     public float timeRemainingInTic=10f;
     public bool paused=true;
     public List<BattlefieldObjectSO> currentSelectableTowers = new List<BattlefieldObjectSO>(); 
+    public List<Science> currentSelectableSciences = new List<Science>(); 
     public BattlefieldObject selectedTower=null;
     public List<int> enemyActions = new List<int>();
 
     public List<BattlefieldObjectSO> allEnemies = new List<BattlefieldObjectSO>(); 
     public List<BattlefieldObjectSO> allTowers = new List<BattlefieldObjectSO>(); 
+    public List<ScienceSO> allSciences = new List<ScienceSO>(); 
+    public ScienceSO upgradeScience;
     public List<Sprite> playerActionIcons = new List<Sprite>(); 
     public List<TextMeshProUGUI> playerActionLabels = new List<TextMeshProUGUI>(); 
     public List<GameObject> unplacedTowerContainers = new List<GameObject>();
@@ -63,6 +69,27 @@ public class GameManager : MonoBehaviour {
     public List<TextMeshProUGUI> overlayTitles = new List<TextMeshProUGUI>();
     public List<Image> overlayImages = new List<Image>();
     public List<TextMeshProUGUI> overlayDescs = new List<TextMeshProUGUI>();
+
+
+    //Tower Modifiers
+    public List<TowerModifier> towerModifiers = new List<TowerModifier>(); //Cleanup - shouldn't be matching array values. This should be "TowerType" Class and contain the values and ScriptableObject
+
+    //Game Stats to show player
+    public int ticsSurvived=0;
+    public int kills=0;
+    public int towersLost=0;
+    public int damageDealt=0;
+    public int damageTaken=0;
+    public int goldEarned=0;
+    public int scienceEarned=0;
+    public GameObject statsOverlay;
+    public TextMeshProUGUI ticsSurvivedUI;
+    public TextMeshProUGUI killsUI;
+    public TextMeshProUGUI towersLostUI;
+    public TextMeshProUGUI damageDealtUI;
+    public TextMeshProUGUI damageTakenUI;
+    public TextMeshProUGUI goldEarnedUI;
+    public TextMeshProUGUI scienceEarnedUI;
 
 
     List<List<int>> ENEMY_MOVEMENT_SEQUENCES=new List<List<int>>(); //Sequencing of enemy movements per direction to minimise collisions
@@ -84,16 +111,23 @@ public class GameManager : MonoBehaviour {
     public const int ENEMY_ACTION_DOWN_RIGHT=4;
     public const int ENEMY_ACTION_RIGHT=5;
 
-    private List<BattleMapTile> battleMapTiles = new List<BattleMapTile>();
+    public const float NORMAL_GAME_SPEED=1f;
+    public const float FAST_GAME_SPEED=5f;
+
+
+    public List<BattleMapTile> battleMapTiles = new List<BattleMapTile>();
     
     void Start() {
         createBattlefield();
         overlay.SetActive(false);
+        statsOverlay.SetActive(false);
         setActionButtonAvailability();
+        initTowerModifiers();
         updateUI();
         ENEMY_MOVEMENT_SEQUENCES=getEnemyMovementSequences();
     }
 
+    //Runs every frame. Does our countdown, and triggers countdonwn events if we've hit 0.
     void Update() {
         if (!paused) {
             timeRemainingInTic-=Time.deltaTime*gameSpeed;
@@ -101,9 +135,18 @@ public class GameManager : MonoBehaviour {
 
         //Our timer just hit 0. Do our player/enemy actions
         if(timeRemainingInTic<=0f) {
+            ticsSurvived++;
             resetCombatVars();
+            
+            runPlayerAttacks();
+            runEnemyAttacks();
+
             runPlayerTicAction();
             runEnemyTicAction();
+
+            acquirePlayerTargets();
+
+            calculateTilesInRange(); //TODO - this is probably a bit heavy to do every Tic
 
             timeRemainingInTic=10f;
             updateUI();
@@ -112,13 +155,28 @@ public class GameManager : MonoBehaviour {
         timerUI.text=(paused ? "[" : "")+Mathf.RoundToInt(timeRemainingInTic+.5f).ToString()+(paused ? "]" : "");
     }
 
+    //Create an array of modifiers for our tower. CLEANUP - move to TowerType class which links to the scriptableobject
+    void initTowerModifiers() {
+        foreach(BattlefieldObjectSO tower in allTowers) {
+            TowerModifier towerModifier = new TowerModifier();
+            towerModifier.towerTypeID=tower.towerTypeID;
+            towerModifiers.Add(towerModifier);
+        }
+    }
+
+    public TowerModifier getModifierByTowerTypeID(int towerTypeID) {
+        foreach(TowerModifier thisTowerMod in towerModifiers) {
+            if (thisTowerMod.towerTypeID==towerTypeID) {
+                return thisTowerMod;
+            }
+        }
+        return null;
+    }
+
     public void setPaused(bool newPaused) {
         paused=newPaused;
         updateUI();
     }
-
-    //TODO - array of tower upgrade modifiers
-
 
     void createBattlefield() {
           int tileUpto=0;
@@ -146,17 +204,17 @@ public class GameManager : MonoBehaviour {
 
         playerActionLabels[ACTION_WORK].text="Work (+"+goldIncome+" gold)";
         playerActionLabels[ACTION_STUDY].text="Study (+"+scienceIncome+" science)";
-        playerActionLabels[ACTION_TINKER].text="Tinker (discover an upgrade)\n (-"+researchCost+" science)";
-        playerActionLabels[ACTION_BUILD_BASIC].text="Build basic tower\n (-"+basicTowerCost+" gold)";
+        playerActionLabels[ACTION_TINKER].text="Tinker\n (-"+researchCost+" science)";
+        playerActionLabels[ACTION_BUILD_BASIC].text="Build tower\n (-"+basicTowerCost+" gold)";
 
         pauseButton.transform.GetComponent<Button>().interactable=!paused;
         pauseButton.GetComponent<Image>().color=(paused ? inactiveColour : activeColour);
 
-        bool playActive = (paused || gameSpeed!=1f);
+        bool playActive = (paused || gameSpeed!=NORMAL_GAME_SPEED);
         playButton.transform.GetComponent<Button>().interactable=playActive;
         playButton.GetComponent<Image>().color=(playActive ? activeColour : inactiveColour);
 
-        bool ffActive = (paused || gameSpeed!=2f);
+        bool ffActive = (paused || gameSpeed!=FAST_GAME_SPEED);
         fastForwardButton.transform.GetComponent<Button>().interactable=ffActive;
         fastForwardButton.GetComponent<Image>().color=(ffActive ? activeColour : inactiveColour);
 
@@ -165,6 +223,14 @@ public class GameManager : MonoBehaviour {
             Sprite enemyActionSprite = (action>-1 ? enemyActionSprites[action] : allEnemies[Mathf.Abs(action+1)].sprite);
             enemyActionUI[x].sprite=enemyActionSprite;
         }
+
+        ticsSurvivedUI.text="Actions Survived: "+ticsSurvived.ToString();
+        killsUI.text="Kills: "+kills.ToString();
+        towersLostUI.text="Towers Lost: "+towersLost.ToString();
+        damageDealtUI.text="Damage Dealt: "+damageDealt.ToString();
+        damageTakenUI.text="Damage Taken: "+damageTaken.ToString();
+        goldEarnedUI.text="Gold Earned: "+goldEarned.ToString();
+        scienceEarnedUI.text="Science Earned: "+scienceEarned.ToString();
     }
 
     public int getScience() {
@@ -205,7 +271,9 @@ public class GameManager : MonoBehaviour {
         GameObject gameObject=Instantiate(battlefieldObjectPrefab);
         //newArtifact.artifactUI=artifactGameObject;
 
-        newObject.init(this, gameObject, battlefieldContainer, so);
+        TowerModifier towerModifier = getModifierByTowerTypeID(so.towerTypeID);
+
+        newObject.init(this, gameObject, battlefieldContainer, so, towerModifier);
 
         return newObject;
     }
@@ -231,6 +299,24 @@ public class GameManager : MonoBehaviour {
         return returnObjects;
     }
 
+    public List<Science> getRandomSciences(int count) {
+        List<Science> returnSciences = new List<Science>();
+
+        for(int x=0; x<count; x++) {
+            int randomElement=UnityEngine.Random.Range(0, allSciences.Count);
+            Science newScience=createScienceFromSO(allSciences[randomElement]); 
+            returnSciences.Add(newScience);
+        }
+        return returnSciences;
+    }
+
+    //Create a science based on the class attached to the scienceSO
+    public Science createScienceFromSO(ScienceSO scienceSO) {
+        Science newScience = (Science)System.Activator.CreateInstance(System.Type.GetType(scienceSO.scienceClass));
+        newScience.init(this, scienceSO);
+        return newScience;
+    }
+
     //Gets a list of random enemies or towers
     public int getRandomEnemy(int enemyLevel) {
         //Filter out towers that don't match filters
@@ -249,24 +335,56 @@ public class GameManager : MonoBehaviour {
         return enemiesMatchingFilter[randomElement];
     }
 
+    //Spawns an enemy in an available slot in the top row. Will override player towers
     public void spawnEnemyInTopRow(BattlefieldObjectSO enemySO) {
-        int slot=UnityEngine.Random.Range(90, 100);
-        battleMapTiles[slot].createObjectInTile(enemySO); //TODO - check if the slot is filled first. If it has a player structure, destroy it.
+        
+        List<int> availableSlots=new List<int>{90,91,92,93,94,95,96,97,98,99}; //CLEANUP
+        List<int> availableSlotsSorted=ShuffleList(availableSlots);
+
+        foreach (int slot in availableSlotsSorted) {
+            if (!battleMapTiles[slot].hasEnemyObject()) {
+                battleMapTiles[slot].createObjectInTile(enemySO);
+                break;
+            }
+        }
+        //int slot=UnityEngine.Random.Range(90, 100);
     }
+
+    public List<int> ShuffleList(List<int> list) {
+        for (int i = 0; i < list.Count; i++) {
+            list=_ShuffleListSwapItems(list, i, UnityEngine.Random.Range(0, list.Count-1));
+        }
+        return list;
+    }
+    
+    //Helper function for ShuffleList
+    private List<int> _ShuffleListSwapItems(List<int> list, int i, int j) {
+        var temp = list[i];
+        list[i] = list[j];
+        list[j] = temp;
+        return list;
+    }
+
 
     
     //Run the player action
     public void runPlayerTicAction() {
         if (nextPlayerAction==ACTION_WORK) {
             gold+=goldIncome;
+            goldEarned+=goldIncome;
         }
         else if(nextPlayerAction==ACTION_STUDY) {
             science+=scienceIncome;
+            scienceEarned+=scienceIncome;
         }
         else if(nextPlayerAction==ACTION_TINKER) {
-            //TODO
+            science-=researchCost;
+            researchCost+=researchIncrementalCost;
+            populateAndShowOverlay(ACTION_TINKER, researchOptionsToChooseFrom);
         }
         else if(nextPlayerAction==ACTION_BUILD_BASIC) {
+            gold-=basicTowerCost;
+            basicTowerCost+=basicTowerIncrementalCost;
             populateAndShowOverlay(ACTION_BUILD_BASIC, basicTowersToChooseFrom);
         }
         setActionButtonAvailability();
@@ -282,14 +400,28 @@ public class GameManager : MonoBehaviour {
              overlayObjects[x].SetActive(x<optionCount);
         }
 
-        if(nextPlayerAction==ACTION_BUILD_BASIC) {
-            overlayTitleTXT.text="Build Basic Tower";
+        RectTransform overlayTransform=overlay.GetComponent<RectTransform>();
+        overlayTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, optionCount==3 ? 1555 : 980); //CLEANUP - this is for 2/3 options
+
+        if(actionType==ACTION_BUILD_BASIC) {
+            overlayTitleTXT.text="Build Tower";
             currentSelectableTowers = getRandomObjects(optionCount, ObjectOwner.player, 1); 
             int optionUpto=0;
             foreach (BattlefieldObjectSO thisObject in currentSelectableTowers) {
                 overlayTitles[optionUpto].text=thisObject.name;
                 overlayImages[optionUpto].sprite=thisObject.sprite;
-                overlayDescs[optionUpto].text=thisObject.desc;
+                overlayDescs[optionUpto].text=thisObject.desc+"\nDamage: ";
+                optionUpto++;
+            }
+        }
+        else if (actionType==ACTION_TINKER) {
+            overlayTitleTXT.text="Tinker";
+            currentSelectableSciences = getRandomSciences(optionCount); 
+            int optionUpto=0;
+            foreach (Science thisScience in currentSelectableSciences) {
+                overlayTitles[optionUpto].text=thisScience.name;
+                overlayImages[optionUpto].sprite=thisScience.sprite;
+                overlayDescs[optionUpto].text=thisScience.desc;
                 optionUpto++;
             }
         }
@@ -337,6 +469,10 @@ public class GameManager : MonoBehaviour {
             return;
         }
 
+        if (battleMapTiles[slot].hasEnemyObject()) {
+            return;
+        }
+
         if (battleMapTiles[slot].moveObjectToTile(selectedTower)) {
             selectedTower=null;
         }
@@ -350,9 +486,44 @@ public class GameManager : MonoBehaviour {
             }
             tile.battlefieldObject.justAttacked=false;
             tile.battlefieldObject.justMoved=false;
+            tile.battlefieldObject.assignedDamage=0;
+            tile.towersInRange=0;
+            tile.enemiesInRange=0;
         }
     }
 
+    //Have player towers attack, then calculate next attacks
+    public void runPlayerAttacks() {
+        foreach (BattleMapTile tile in battleMapTiles) {
+            if (!tile.hasPlayerObject()) {
+                continue;
+            }
+            tile.battlefieldObject.damageTarget();
+        }  
+    }
+
+
+    //Have player towers attack, then calculate next attacks
+    public void acquirePlayerTargets() {
+        foreach (BattleMapTile tile in battleMapTiles) {
+            if (!tile.hasPlayerObject()) {
+                continue;
+            }
+            tile.battlefieldObject.acquireTarget();
+        }  
+    }
+
+    //Have player towers attack, then calculate next attacks
+    public void calculateTilesInRange() {
+        foreach (BattleMapTile tile in battleMapTiles) {
+            if (!tile.hasObject()) {
+                continue;
+            }
+            tile.battlefieldObject.calculateTilesInRange();
+        }  
+    }
+
+    
 
 
     /****************************************************************
@@ -373,7 +544,7 @@ public class GameManager : MonoBehaviour {
         //Run this action
         int thisAction=enemyActions[0];
         if (thisAction<0) {
-            spawnEnemyInTopRow(allEnemies[thisAction+1]);
+            spawnEnemyInTopRow(allEnemies[Mathf.Abs(thisAction)-1]);
         }
         else if(thisAction>ENEMY_ACTION_NOTHING) {
             moveEnemiesInDirection(thisAction);
@@ -401,19 +572,19 @@ public class GameManager : MonoBehaviour {
     //CLEANUP - make this work for grids that aren't 10x10
     public List<List<int>> getEnemyMovementSequences() {
         List<List<int>> returnList = new List<List<int>>();
-        returnList.Add(new List<int>()); //A dummy list to offset our IDs for ENEMY_ACTION_NOTHING
+        //returnList.Add(new List<int>()); //A dummy list to offset our IDs for ENEMY_ACTION_NOTHING
         for (int direction=0; direction<=ENEMY_ACTION_RIGHT; direction++) {
             List<int> thisDirectionList = new List<int>();
             if (direction==ENEMY_ACTION_LEFT || direction==ENEMY_ACTION_DOWN_LEFT) {
-                for(int x=9; x>=0; x--) {
-                    for(int y=0; x<=9; y++) {
+                for(int x=0; x<=9; x++) {
+                    for(int y=0; y<=9; y++) {
                         thisDirectionList.Add(x+(y*10));
                     }
                 }
             }
             else if (direction==ENEMY_ACTION_RIGHT || direction==ENEMY_ACTION_DOWN_RIGHT) {
-                for(int x=0; x<=9; x++) {
-                    for(int y=0; x<=9; y++) {
+                for(int x=9; x>=0; x--) {
+                    for(int y=0; y<=9; y++) {
                         thisDirectionList.Add(x+(y*10));
                     }
                 }
@@ -436,8 +607,6 @@ public class GameManager : MonoBehaviour {
             return;
         }
 
-        Debug.Log("Trying to move enemies in direction: "+direction+" Count of direction array: "+ENEMY_MOVEMENT_SEQUENCES.Count);
-
         List<int> tilesToMove = ENEMY_MOVEMENT_SEQUENCES[direction];
 
         foreach (int tileID in tilesToMove) {
@@ -455,6 +624,8 @@ public class GameManager : MonoBehaviour {
             if (destinationTile.hasObject()) {
                 continue; //Blocked by object
             }
+
+            Debug.Log("Moving "+sourceTile.battlefieldObject.name+" from "+tileID+" to "+tileInDirection);
 
             sourceTile.moveExistingObjectToAnotherTile(destinationTile);
         }
@@ -489,9 +660,16 @@ public class GameManager : MonoBehaviour {
         return -1;
     }
 
-
-
-
+    
+    
+    public void runEnemyAttacks() {
+        foreach (BattleMapTile tile in battleMapTiles) {
+            if (!tile.hasEnemyObject()) {
+                continue;
+            }
+            tile.battlefieldObject.attackTowers();
+        }  
+    }
 
 
 
@@ -542,13 +720,18 @@ public class GameManager : MonoBehaviour {
 
     public void clickPlayButton() {
         setPaused(false);
-        gameSpeed=1f;
+        gameSpeed=NORMAL_GAME_SPEED;
         updateUI();
     }
 
     public void clickFastForwardButton() {
         setPaused(false);
-        gameSpeed=2f;
+        gameSpeed=FAST_GAME_SPEED;
         updateUI();
+    }
+
+    public void toggleStatsOverlay(bool showOverlay) {
+        statsOverlay.SetActive(showOverlay);
+        setPaused(showOverlay);
     }
 }
