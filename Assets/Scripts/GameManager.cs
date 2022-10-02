@@ -59,6 +59,7 @@ public class GameManager : MonoBehaviour {
     public List<Science> currentSelectableSciences = new List<Science>(); 
     public BattlefieldObject selectedTower=null;
     public List<int> enemyActions = new List<int>();
+    int enemiesOnBattlefield=0;
 
     public List<BattlefieldObjectSO> allEnemies = new List<BattlefieldObjectSO>(); 
     public List<BattlefieldObjectSO> allTowers = new List<BattlefieldObjectSO>(); 
@@ -122,10 +123,13 @@ public class GameManager : MonoBehaviour {
     public const int ENEMY_ACTION_RIGHT=5;
     public const int ENEMY_ACTION_UP=6;
 
+    const int INCREASE_NUMBER_OF_ENEMIES_EVERY_X_TICS=20;
+    const int ADD_DIFFICULT_ENEMIES_AFTER_X_TICS=50;
+
     public const int SOUND_CLICK=8;
         public const float SOUND_CLICK_VOLUME=.15f;
     public const int SOUND_SCIENCE=6;
-        public const float SOUND_SCIENCE_VOLUME=.5f;
+        public const float SOUND_SCIENCE_VOLUME=.2f;
     public const int SOUND_PLACE_TOWER=7;
         public const float SOUND_PLACE_TOWER_VOLUME=.5f;
     public const int SOUND_TIC=9;
@@ -153,11 +157,13 @@ public class GameManager : MonoBehaviour {
     }
 
     public void startGame() {
+        playSound(SOUND_CLICK, SOUND_CLICK_VOLUME);
         setActiveCanvas("GameCanvas");
         paused=false;
     }
 
     public void startTutorial() {
+        playSound(SOUND_CLICK, SOUND_CLICK_VOLUME);
         setActiveCanvas("TutorialCanvas");
     }
 
@@ -221,10 +227,6 @@ public class GameManager : MonoBehaviour {
                 tileUpto++;
             }
           }
-
-          /*spawnEnemyInTopRow(allEnemies[0]);
-          spawnEnemyInTopRow(allEnemies[0]);
-          spawnEnemyInTopRow(allEnemies[0]);*/
     }
 
 
@@ -379,15 +381,18 @@ public class GameManager : MonoBehaviour {
     }
 
     //Spawns an enemy in an available slot in the top row. Will override player towers
-    public void spawnEnemyInTopRow(BattlefieldObjectSO enemySO) {
+    public void spawnEnemyInTopRow(BattlefieldObjectSO enemySO, int enemiesToSpawn) {
         
         List<int> availableSlots=new List<int>{90,91,92,93,94,95,96,97,98,99}; //CLEANUP
         List<int> availableSlotsSorted=ShuffleList(availableSlots);
-
+        int enemiesSpawned=0;
         foreach (int slot in availableSlotsSorted) {
             if (!battleMapTiles[slot].hasEnemyObject()) {
                 battleMapTiles[slot].createObjectInTile(enemySO);
-                break;
+                enemiesSpawned++;
+                if (enemiesSpawned>=enemiesToSpawn) {
+                    break;
+                }
             }
         }
         //int slot=UnityEngine.Random.Range(90, 100);
@@ -451,9 +456,13 @@ public class GameManager : MonoBehaviour {
             currentSelectableTowers = getRandomObjects(optionCount, ObjectOwner.player, 1); 
             int optionUpto=0;
             foreach (BattlefieldObjectSO thisObject in currentSelectableTowers) {
+                TowerModifier modifier=getModifierByTowerTypeID(thisObject.towerTypeID);
                 overlayTitles[optionUpto].text=thisObject.name;
                 overlayImages[optionUpto].sprite=thisObject.sprite;
-                overlayDescs[optionUpto].text=thisObject.desc+"\nDamage: ";
+                overlayDescs[optionUpto].text=thisObject.desc+
+                "\nDamage: "+(thisObject.damage+modifier.damage).ToString()+
+                "\nRange: "+(thisObject.range+modifier.range).ToString()+
+                "\nHP: "+(thisObject.hp+modifier.hp).ToString();
                 optionUpto++;
             }
         }
@@ -524,11 +533,15 @@ public class GameManager : MonoBehaviour {
 
     
     public void resetCombatVars() {
+        enemiesOnBattlefield=0;
         foreach (BattleMapTile tile in battleMapTiles) {
             tile.towersInRange=0;
             tile.enemiesInRange=0;
             if (!tile.hasObject()) {
                 continue;
+            }
+            if (tile.hasEnemyObject()) {
+                enemiesOnBattlefield++;
             }
             tile.battlefieldObject.justAttacked=false;
             tile.battlefieldObject.justMoved=false;
@@ -588,7 +601,9 @@ public class GameManager : MonoBehaviour {
         //Run this action
         int thisAction=enemyActions[0];
         if (thisAction<0) {
-            spawnEnemyInTopRow(allEnemies[Mathf.Abs(thisAction)-1]);
+            //Spawn more enemies as it gets more difficult
+            int enemiesToSpawn=UnityEngine.Random.Range(1, Mathf.Max(2,2+Mathf.FloorToInt(ticsSurvived/INCREASE_NUMBER_OF_ENEMIES_EVERY_X_TICS)));
+            spawnEnemyInTopRow(allEnemies[Mathf.Abs(thisAction)-1], enemiesToSpawn);
         }
         else if(thisAction>ENEMY_ACTION_NOTHING) {
             moveEnemiesInDirection(thisAction);
@@ -597,10 +612,22 @@ public class GameManager : MonoBehaviour {
         
         //Calculate next action
         float chanceOfSpawn=.5f;
+        if (enemiesOnBattlefield<5) {
+            chanceOfSpawn=.8f;
+        }
+        else if (enemiesOnBattlefield>12) {
+            chanceOfSpawn=.2f;
+        }
+
         float spawnRoll=Random.Range(0f,1f);
         int nextAction=0;
         if (spawnRoll<=chanceOfSpawn) {
-            nextAction = -getRandomEnemy(1)-1;
+            int enemyLevel=1;
+            if (ticsSurvived>=ADD_DIFFICULT_ENEMIES_AFTER_X_TICS) {
+                enemyLevel=UnityEngine.Random.Range(1,3);
+            }
+
+            nextAction = -getRandomEnemy(enemyLevel)-1;
         }
         else {
             nextAction=UnityEngine.Random.Range(1, 6);
@@ -740,6 +767,7 @@ public class GameManager : MonoBehaviour {
 
     public void clickPlayerActionButton(int buttonClicked) {
         nextPlayerAction=buttonClicked;
+        playSound(SOUND_CLICK, SOUND_CLICK_VOLUME);
         updateUI();
     }
 

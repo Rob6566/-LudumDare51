@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 18a25acfed7c4434496f046df8ff238f, type: 3}
-  m_Name: Sniper tower
+  m_Name: 4 - War Elephant
   m_EditorClassIdentifier: 
-  towerTypeID: 4
-  objectOwner: 1
-  name: Sniper tower
-  desc: Weak, very fragile tower with long range
-  sprite: {fileID: 21300000, guid: 4e9064ac2191b4295b7b7e79b623890c, type: 3}
-  hp: 50
-  damage: 20
-  level: 1
-  range: 3
+  towerTypeID: 0
+  objectOwner: 0
+  name: War Elephant
+  desc: 
+  sprite: {fileID: 21300000, guid: 4f2e74ddec517400bb8adf3717e0a3f3, type: 3}
+  hp: 600
+  damage: 5
+  level: 2
+  range: 0
   AOE: 0

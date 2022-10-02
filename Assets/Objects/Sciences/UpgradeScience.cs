@@ -19,7 +19,12 @@ public class UpgradeScience : Science {
 
         //Figure out which stat we're upgrading
         int stat=UnityEngine.Random.Range(0, 3);
-        if (stat==0) {
+        if (upgradeTowerSO.towerTypeID==2) { //CLEANUP - special handling for brick tower - we only want to increase its HP
+            statToUpgrade="HP";
+            hpBoost=40;
+            this.desc="Increase the HP of "+upgradeTowerSO.name+"s by "+hpBoost;
+        }
+        else if (stat==0) { 
             statToUpgrade="HP";
             this.desc="Increase the HP of "+upgradeTowerSO.name+"s by "+hpBoost;
         }
