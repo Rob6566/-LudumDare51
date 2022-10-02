@@ -60,6 +60,7 @@ public class GameManager : MonoBehaviour {
     public BattlefieldObject selectedTower=null;
     public List<int> enemyActions = new List<int>();
     int enemiesOnBattlefield=0;
+    int enemiesInTopRow=0;
 
     public List<BattlefieldObjectSO> allEnemies = new List<BattlefieldObjectSO>(); 
     public List<BattlefieldObjectSO> allTowers = new List<BattlefieldObjectSO>(); 
@@ -136,7 +137,7 @@ public class GameManager : MonoBehaviour {
         public const float SOUND_TIC_VOLUME=.2f;
 
     public const float NORMAL_GAME_SPEED=1f;
-    public const float FAST_GAME_SPEED=5f;
+    public const float FAST_GAME_SPEED=50f;
 
 
     public List<BattleMapTile> battleMapTiles = new List<BattleMapTile>();
@@ -534,6 +535,7 @@ public class GameManager : MonoBehaviour {
     
     public void resetCombatVars() {
         enemiesOnBattlefield=0;
+        enemiesInTopRow=0;
         foreach (BattleMapTile tile in battleMapTiles) {
             tile.towersInRange=0;
             tile.enemiesInRange=0;
@@ -542,11 +544,15 @@ public class GameManager : MonoBehaviour {
             }
             if (tile.hasEnemyObject()) {
                 enemiesOnBattlefield++;
+                if (tile.tilePosition>89) {
+                    enemiesInTopRow++;
+                }
             }
             tile.battlefieldObject.justAttacked=false;
             tile.battlefieldObject.justMoved=false;
             tile.battlefieldObject.assignedDamage=0;
         }
+        Debug.Log("Enemies: "+enemiesOnBattlefield+" topRow="+enemiesInTopRow);
     }
 
     //Have player towers attack, then calculate next attacks
@@ -619,6 +625,10 @@ public class GameManager : MonoBehaviour {
             chanceOfSpawn=.2f;
         }
 
+        if (enemiesInTopRow>7) {
+            chanceOfSpawn=.05f;
+        }
+
         float spawnRoll=Random.Range(0f,1f);
         int nextAction=0;
         if (spawnRoll<=chanceOfSpawn) {
@@ -630,7 +640,12 @@ public class GameManager : MonoBehaviour {
             nextAction = -getRandomEnemy(enemyLevel)-1;
         }
         else {
-            nextAction=UnityEngine.Random.Range(1, 6);
+            if (enemiesInTopRow>7) {
+                nextAction=UnityEngine.Random.Range(2, 5);
+            }
+            else {
+                nextAction=UnityEngine.Random.Range(1, 6);
+            }
         }
 
         //Shuffle Actions
@@ -706,8 +721,6 @@ public class GameManager : MonoBehaviour {
             if (destinationTile.hasObject()) {
                 continue; //Blocked by object
             }
-
-            Debug.Log("Moving "+sourceTile.battlefieldObject.name+" from "+tileID+" to "+tileInDirection);
 
             sourceTile.moveExistingObjectToAnotherTile(destinationTile);
         }
