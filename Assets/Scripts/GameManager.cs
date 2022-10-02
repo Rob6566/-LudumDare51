@@ -137,7 +137,7 @@ public class GameManager : MonoBehaviour {
         public const float SOUND_TIC_VOLUME=.2f;
 
     public const float NORMAL_GAME_SPEED=1f;
-    public const float FAST_GAME_SPEED=50f;
+    public const float FAST_GAME_SPEED=5f;
 
 
     public List<BattleMapTile> battleMapTiles = new List<BattleMapTile>();
