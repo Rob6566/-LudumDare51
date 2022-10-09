@@ -19,6 +19,7 @@ public class GameManager : MonoBehaviour {
     public GameObject fireCirclePrefab;
     public GameObject battlefieldContainer;
     public GameObject battlefieldIndicatorContainer;
+    public GameObject textAlertPrefab;
     [SerializeField] Image playerActionUI;
     [SerializeField] List<Image> enemyActionUI = new List<Image>();
     [SerializeField] List<Sprite> enemyActionSprites = new List<Sprite>();
@@ -160,6 +161,14 @@ public class GameManager : MonoBehaviour {
     public const int TOWER_BRICK=2;
     public const int TOWER_FIRE=3;
     public const int TOWER_SNIPER=4;
+    public const int TOWER_INCOME=5;
+    public const int TOWER_BALLISTA=6;
+
+    public const string COLOUR_GOLD="#000000";
+    public const string COLOUR_SCIENCE="#000000";
+
+    //Version
+    public List<TextMeshProUGUI> versionTxts = new List<TextMeshProUGUI>();
 
 
     public List<BattleMapTile> battleMapTiles = new List<BattleMapTile>();
@@ -178,6 +187,10 @@ public class GameManager : MonoBehaviour {
         statsButtonUI.text="Close";
         setActiveCanvas("TitleCanvas");
         paused=true;
+
+        foreach(TextMeshProUGUI txtVersion in versionTxts) {
+            txtVersion.text="Version: "+Application.version;
+        }
     }
 
     public void startGame() {
@@ -272,12 +285,12 @@ public class GameManager : MonoBehaviour {
         Color32 activeColour= new Color32(168,168,168, 255); //CLEANUP - constant
         Color32 inactiveColour= new Color32(65,65,65, 255);
 
-        goldUI.text="Gold: "+Mathf.Floor(gold).ToString();
-        scienceUI.text="Science: "+Mathf.Floor(science).ToString();
+        goldUI.text="Gold: <color="+COLOUR_GOLD+">"+Mathf.Floor(gold).ToString()+"</color>";
+        scienceUI.text="Science: <color="+COLOUR_SCIENCE+">"+Mathf.Floor(science).ToString()+"</color>";;
 
         playerActionUI.sprite=playerActionIcons[nextPlayerAction];
 
-        playerActionLabels[ACTION_WORK].text="<color=#660000>W</color>ork (+"+goldIncome+" gold)";
+        playerActionLabels[ACTION_WORK].text="<color=#660000>W</color>ork (+<color="+COLOUR_GOLD+">"+goldIncome+" gold</color>)";
         playerActionLabels[ACTION_STUDY].text="<color=#660000>S</color>tudy (+"+scienceIncome+" science)";
         playerActionLabels[ACTION_TINKER].text="Tinker (<color=#660000>a</color>)\n (-"+researchCost+" science)";
         playerActionLabels[ACTION_BUILD_BASIC].text="Buil<color=#660000>d</color> tower\n (-"+basicTowerCost+" gold)";
@@ -308,20 +321,20 @@ public class GameManager : MonoBehaviour {
         scienceEarnedUI.text="Science Earned: "+scienceEarned.ToString();
     }
 
-    public int getScience() {
+    public float getScience() {
         return science;
     }
     
-    public void setScience(int newScience) {
+    public void setScience(float newScience) {
         science=newScience;
         updateUI();
     }
 
-    public int getGold() {
+    public float getGold() {
         return gold;
     }
     
-    public void setGold(int newGold) {
+    public void setGold(float newGold) {
         gold=newGold;
         updateUI();
     }
@@ -613,10 +626,28 @@ public class GameManager : MonoBehaviour {
 
     //Have player towers attack, then calculate next attacks
     public void acquirePlayerTargets() {
+        
+        //Targeting and damage calculation for dumb towers (Ballista and Fire)
         foreach (BattleMapTile tile in battleMapTiles) {
             if (!tile.hasPlayerObject()) {
                 continue;
             }
+            if (tile.battlefieldObject.towerTypeID!=TOWER_BALLISTA && tile.battlefieldObject.towerTypeID!=TOWER_FIRE) {
+                continue;
+            }
+
+            tile.battlefieldObject.acquireTarget();
+        }  
+
+        //Targeting and damage calculation for smart towers (Arrow and Sniper). Since our dumb tower damage is assigned, we can be smarter here
+        foreach (BattleMapTile tile in battleMapTiles) {
+            if (!tile.hasPlayerObject()) {
+                continue;
+            }
+            if (tile.battlefieldObject.towerTypeID==TOWER_BALLISTA || tile.battlefieldObject.towerTypeID==TOWER_FIRE) {
+                continue;
+            }
+
             tile.battlefieldObject.acquireTarget();
         }  
     }

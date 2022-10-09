@@ -17,8 +17,9 @@ MonoBehaviour:
   name: Vampire
   desc: 
   sprite: {fileID: 21300000, guid: 9f21bc3a382ca43ad979c27e9efe52ce, type: 3}
-  hp: 200
+  hp: 150
   damage: 10
   level: 1
   range: 0
   AOE: 0
+  projectileSpeed: 1

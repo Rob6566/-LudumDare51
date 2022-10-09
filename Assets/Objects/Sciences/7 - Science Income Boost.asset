@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: 7 - Science Income Boost
   m_EditorClassIdentifier: 
   name: Brains!
-  desc: Increase your science income by 2
+  desc: Increase your Study science income by 2
   sprite: {fileID: 21300000, guid: a9ec13928ea3e4121b494aba09056fbe, type: 3}
   scienceClass: BrainsScience

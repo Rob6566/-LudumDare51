@@ -100,6 +100,23 @@ public class BattlefieldObject
 
         tilesInRange=new List<int>();
 
+
+        if (towerTypeID==GameManager.TOWER_BALLISTA) {
+            int intRange=(int)Mathf.Floor(this.range);
+            for(int i=1; i<=intRange; i++) {
+                int thisTileID=tileID+(i*10);
+                if (thisTileID>99) {
+                    break;
+                }
+                BattleMapTile thisTile=gameManager.battleMapTiles[thisTileID];
+                thisTile.towersInRange++;
+                tilesInRange.Add(thisTile.tilePosition);
+            }
+
+            return;
+        }
+
+
         Vector2 towerTileCoords=gameManager.battleMapTiles[this.tileID].getTileCoords();
 
         foreach(BattleMapTile thisTile in gameManager.battleMapTiles) {
@@ -115,22 +132,31 @@ public class BattlefieldObject
                 }
             }
         }
-
-        foreach (int thisTileID in tilesInRange) {
-            if (gameManager.battleMapTiles[tileID].hasPlayerObject()) {
-                Debug.Log("Tile in range "+thisTileID);
-            }
-        }
     }
 
     //Find a target. Since we automatically sort tiles left to right, bottom to top, we just attack the first one we find.
     public void acquireTarget() {
         targetTile=-1;
         shootAnimationsInitiated=0;
+        if (towerTypeID==GameManager.TOWER_BALLISTA) {
+            foreach(int thisTileID in tilesInRange) {
+                BattleMapTile thisTile=gameManager.battleMapTiles[thisTileID];
+                if (!thisTile.hasEnemyObject()) {
+                    continue;
+                }
+                thisTile.battlefieldObject.assignedDamage+=this.damage;
+                targetTile=thisTileID;
+            }
+            targetTileDistance=tilesInRange.Count;
+            return;
+        }
+
         if (AOE) {
             targetTile=999;
             return;
         }
+
+
         foreach(int tileID in tilesInRange) {
             BattleMapTile thisTile=gameManager.battleMapTiles[tileID];
             if (!thisTile.hasEnemyObject()) {
@@ -163,6 +189,20 @@ public class BattlefieldObject
                 this.justAttacked=true;
                 thisTile.takeDamage(this.damage);
             }
+        }
+        else if (towerTypeID==GameManager.TOWER_INCOME) {
+                GameObject textPopup = UnityEngine.Object.Instantiate(gameManager.textAlertPrefab);   
+                textPopup.transform.SetParent(gameManager.battlefieldIndicatorContainer.transform);
+                BattleMapTile originTile=gameManager.battleMapTiles[this.tileID];
+                
+                TextHandler textHandler = textPopup.GetComponent<TextHandler>();
+                Vector2 tilePosition=originTile.getTileCoords();
+
+                float resourcesGained=(tilePosition.y+1)*0.2f;
+                gameManager.gold+=resourcesGained;
+                gameManager.science+=resourcesGained;
+                gameManager.updateUI();
+                textHandler.init(4f, originTile.gameObject.transform.position, gameManager, "+"+resourcesGained.ToString()+" gold/science"); 
         }
         else {
             if (targetTile<0) {
@@ -225,20 +265,15 @@ public class BattlefieldObject
 
     //Since this isn't a Monobehaviour, so we're calling it from GameManager.
     public void Update(float timeRemainingInTic) {
-        /*if (initiatedShootAnimation) {
-            return;
-        }*/
-
-
         //Shoot missiles
         BattleMapTile originTile=gameManager.battleMapTiles[this.tileID];
-        if ((this.towerTypeID==GameManager.TOWER_ARROW || this.towerTypeID==GameManager.TOWER_SNIPER) && targetTile>=0 && shootAnimationsInitiated==0) {    
+        if ((this.towerTypeID==GameManager.TOWER_ARROW || this.towerTypeID==GameManager.TOWER_SNIPER || this.towerTypeID==GameManager.TOWER_BALLISTA) && targetTile>=0 && shootAnimationsInitiated==0) {    
             if (timeRemainingInTic<=(projectileSpeed*targetTileDistance)) {
                 shootAnimationsInitiated=1;
                 BattleMapTile destinationTile=gameManager.battleMapTiles[targetTile];
                 
                 GameObject prefab=null;
-                if (this.towerTypeID==GameManager.TOWER_ARROW) {
+                if (this.towerTypeID==GameManager.TOWER_ARROW || this.towerTypeID==GameManager.TOWER_BALLISTA) {
                     prefab=gameManager.arrowProjectilePrefab;
                 }
                 else if (this.towerTypeID==GameManager.TOWER_SNIPER) {

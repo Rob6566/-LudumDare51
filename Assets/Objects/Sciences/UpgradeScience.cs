@@ -19,9 +19,13 @@ public class UpgradeScience : Science {
 
         //Figure out which stat we're upgrading
         int stat=UnityEngine.Random.Range(0, 3);
-        if (upgradeTowerSO.towerTypeID==2) { //CLEANUP - special handling for brick tower - we only want to increase its HP
+        if (upgradeTowerSO.towerTypeID==GameManager.TOWER_BRICK) {
             statToUpgrade="HP";
-            hpBoost=40;
+            hpBoost=50;
+            this.desc="Increase the HP of "+upgradeTowerSO.name+"s by "+hpBoost;
+        }
+        else if (upgradeTowerSO.towerTypeID==GameManager.TOWER_INCOME) {
+            statToUpgrade="HP";
             this.desc="Increase the HP of "+upgradeTowerSO.name+"s by "+hpBoost;
         }
         else if (stat==0) { 
@@ -55,5 +59,29 @@ public class UpgradeScience : Science {
         else if (statToUpgrade=="Damage") {
             towerModifier.damage+=damageBoost;
         }
+
+
+        foreach (BattleMapTile tile in gameManager.battleMapTiles) {
+            if (!tile.hasPlayerObject()) {
+                continue;
+            }
+
+            BattlefieldObject tower = tile.battlefieldObject;
+            if (tower.towerTypeID!=upgradeTowerSO.towerTypeID) {
+                continue;
+            }
+
+            if (statToUpgrade=="HP") {
+                tower.maxHP+=hpBoost;
+                tower.hp+=hpBoost;
+            }
+            else if (statToUpgrade=="Range") {
+                tower.range+=rangeBoost;
+            }
+            else if (statToUpgrade=="Damage") {
+                tower.damage+=damageBoost;
+            }
+            tower.updateUI();
+        }  
     }
 }
