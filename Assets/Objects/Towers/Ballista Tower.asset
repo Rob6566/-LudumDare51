@@ -10,16 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 18a25acfed7c4434496f046df8ff238f, type: 3}
-  m_Name: Arrow tower
+  m_Name: Ballista Tower
   m_EditorClassIdentifier: 
-  towerTypeID: 1
+  towerTypeID: 4
   objectOwner: 1
-  name: Arrow tower
-  desc: A weak basic tower with a decent range
-  sprite: {fileID: 21300000, guid: a49b041b7bc3d43d8884f1eb400f3d1d, type: 3}
-  hp: 80
-  damage: 40
+  name: Ballista Tower
+  desc: Fires a powerful bolt along a single column. Can damage multiple enemies.
+  sprite: {fileID: 21300000, guid: 12477ca7220f445cfb613b7de868688c, type: 3}
+  hp: 60
+  damage: 30
   level: 1
-  range: 2
+  range: 5
   AOE: 0
-  projectileSpeed: 0.5
+  projectileSpeed: 0.3

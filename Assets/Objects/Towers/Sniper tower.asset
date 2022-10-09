@@ -20,5 +20,6 @@ MonoBehaviour:
   hp: 50
   damage: 20
   level: 1
-  range: 3
+  range: 4
   AOE: 0
+  projectileSpeed: 0.3

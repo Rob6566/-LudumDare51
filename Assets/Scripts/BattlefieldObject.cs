@@ -17,6 +17,7 @@ public class BattlefieldObject
     public float range;
     public bool AOE;
     public int towerTypeID;
+    public float projectileSpeed;
 
     public GameObject rootGameObject;
     public GameObject hpBar1;
@@ -37,6 +38,8 @@ public class BattlefieldObject
     public bool justAttacked=false;
     public int assignedDamage=0;  //Used to track how much damage other towers have assigned to this object, a (fairly rudimentary) way to reduce overkill
     public int targetTile=-1;
+    public float targetTileDistance=0f;
+    public int shootAnimationsInitiated;
 
     public List<int> tilesInRange = new List<int>();
 
@@ -51,6 +54,7 @@ public class BattlefieldObject
         level=newBattlefieldObjectSO.level;
         range=newBattlefieldObjectSO.range;
         AOE=newBattlefieldObjectSO.AOE;
+        projectileSpeed=newBattlefieldObjectSO.projectileSpeed;
         towerTypeID=newBattlefieldObjectSO.towerTypeID;
         objectOwner=newBattlefieldObjectSO.objectOwner;
         rootGameObject=gameObject;
@@ -111,11 +115,18 @@ public class BattlefieldObject
                 }
             }
         }
+
+        foreach (int thisTileID in tilesInRange) {
+            if (gameManager.battleMapTiles[tileID].hasPlayerObject()) {
+                Debug.Log("Tile in range "+thisTileID);
+            }
+        }
     }
 
     //Find a target. Since we automatically sort tiles left to right, bottom to top, we just attack the first one we find.
     public void acquireTarget() {
         targetTile=-1;
+        shootAnimationsInitiated=0;
         if (AOE) {
             targetTile=999;
             return;
@@ -129,8 +140,8 @@ public class BattlefieldObject
                 continue;
             }
             targetTile=thisTile.tilePosition;
-
-            //TODO - draw a line to indicate our attack
+            Vector2 towerTileCoords=gameManager.battleMapTiles[this.tileID].getTileCoords();
+            targetTileDistance=Vector2.Distance(thisTile.getTileCoords(), towerTileCoords);
 
             Debug.Log("Target acquired - tower in "+tileID+" will attack "+targetTile);
 
@@ -173,6 +184,24 @@ public class BattlefieldObject
     }
 
     public void Destroy() {
+        float scale=165f;
+        float animationDuration=.4f;
+        GameObject destroyAnimation = rootGameObject;
+
+        if (objectOwner==ObjectOwner.enemy) {
+            destroyAnimation=UnityEngine.Object.Instantiate(gameManager.enemyDestroyedPrefab);
+        }
+        else if (/*towerTypeID==1*/objectOwner==ObjectOwner.player) {
+            destroyAnimation=UnityEngine.Object.Instantiate(gameManager.arrowDestroyedPrefab);
+        }
+
+        if (destroyAnimation!=rootGameObject) {
+            destroyAnimation.transform.SetParent(gameManager.battleMapTiles[tileID].gameObject.transform);
+            destroyAnimation.transform.localPosition=new Vector3(0, 0, 0);
+            destroyAnimation.transform.localScale=new Vector3(scale,scale,scale);
+            UnityEngine.Object.Destroy(destroyAnimation, animationDuration);    
+        }
+
         UnityEngine.Object.Destroy(rootGameObject);
     }
 
@@ -191,5 +220,47 @@ public class BattlefieldObject
             this.justAttacked=true;
             thisTile.takeDamage(this.damage);
         }
+    }
+
+
+    //Since this isn't a Monobehaviour, so we're calling it from GameManager.
+    public void Update(float timeRemainingInTic) {
+        /*if (initiatedShootAnimation) {
+            return;
+        }*/
+
+
+        //Shoot missiles
+        BattleMapTile originTile=gameManager.battleMapTiles[this.tileID];
+        if ((this.towerTypeID==GameManager.TOWER_ARROW || this.towerTypeID==GameManager.TOWER_SNIPER) && targetTile>=0 && shootAnimationsInitiated==0) {    
+            if (timeRemainingInTic<=(projectileSpeed*targetTileDistance)) {
+                shootAnimationsInitiated=1;
+                BattleMapTile destinationTile=gameManager.battleMapTiles[targetTile];
+                
+                GameObject prefab=null;
+                if (this.towerTypeID==GameManager.TOWER_ARROW) {
+                    prefab=gameManager.arrowProjectilePrefab;
+                }
+                else if (this.towerTypeID==GameManager.TOWER_SNIPER) {
+                    prefab=gameManager.sniperProjectilePrefab;
+                }
+
+                GameObject projectile = UnityEngine.Object.Instantiate(prefab);   
+                projectile.transform.SetParent(gameManager.battlefieldIndicatorContainer.transform/*originTile.gameObject.transform*/);
+                
+                ProjectileHandler projectileHandler = projectile.GetComponent<ProjectileHandler>();
+                projectileHandler.init(projectileSpeed*targetTileDistance, originTile.gameObject.transform.position, destinationTile.gameObject.transform.position, gameManager);
+            }
+        }
+        else if (this.towerTypeID==GameManager.TOWER_FIRE && (timeRemainingInTic<=(projectileSpeed)) && shootAnimationsInitiated<6) {
+            shootAnimationsInitiated++;
+            GameObject projectile = UnityEngine.Object.Instantiate(gameManager.fireCirclePrefab);   
+            projectile.transform.SetParent(gameManager.battlefieldIndicatorContainer.transform);
+            projectile.transform.position=originTile.gameObject.transform.position;
+            
+            FireCircleHandler fireCircleHandler = projectile.GetComponent<FireCircleHandler>();
+            fireCircleHandler.init(projectileSpeed, this.range, gameManager);
+        }
+                
     }
 }

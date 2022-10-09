@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Animations;
 using UnityEngine.SceneManagement;
 using TMPro;
 
@@ -12,7 +13,12 @@ public enum ObjectOwner {enemy, player};
 public class GameManager : MonoBehaviour {
     public GameObject battlefieldTilePrefab;
     public GameObject battlefieldObjectPrefab;
+    public GameObject battlefieldLinePrefab;
+    public GameObject arrowProjectilePrefab;
+    public GameObject sniperProjectilePrefab;
+    public GameObject fireCirclePrefab;
     public GameObject battlefieldContainer;
+    public GameObject battlefieldIndicatorContainer;
     [SerializeField] Image playerActionUI;
     [SerializeField] List<Image> enemyActionUI = new List<Image>();
     [SerializeField] List<Sprite> enemyActionSprites = new List<Sprite>();
@@ -24,15 +30,22 @@ public class GameManager : MonoBehaviour {
     [SerializeField] TextMeshProUGUI timerUI;
 
 
+    //Animations
+    public GameObject arrowDestroyedPrefab;
+    public GameObject enemyDestroyedPrefab;
+    //public AnimatorController arrowTowerAnimatorController;
+
+
     //Audio
     [SerializeField] List<AudioClip> sounds;
     [SerializeField] AudioSource audioSource;
 
     public Canvas canvas;
 
-    public int gold=0;
-    public int science=0;
+    public float gold=0;
+    public float science=0;
     public int nextPlayerAction=0;
+    public int lastOverlayAction=0;
 
     public int goldIncome=10;
     public int scienceIncome=10;
@@ -43,7 +56,7 @@ public class GameManager : MonoBehaviour {
     public int unplacedTowerSlots=2;
     public int basicTowersToChooseFrom=2;
     public int researchOptionsToChooseFrom=3;
-    public float gameSpeed=1f;
+    public float gameSpeed=1.2f;
     
     private bool gameOver=false;
 
@@ -61,6 +74,7 @@ public class GameManager : MonoBehaviour {
     public List<int> enemyActions = new List<int>();
     int enemiesOnBattlefield=0;
     int enemiesInTopRow=0;
+    bool showingOverlay=false;
 
     public List<BattlefieldObjectSO> allEnemies = new List<BattlefieldObjectSO>(); 
     public List<BattlefieldObjectSO> allTowers = new List<BattlefieldObjectSO>(); 
@@ -136,11 +150,20 @@ public class GameManager : MonoBehaviour {
     public const int SOUND_TIC=9;
         public const float SOUND_TIC_VOLUME=.2f;
 
-    public const float NORMAL_GAME_SPEED=1f;
+    public const float NORMAL_GAME_SPEED=1.2f;
     public const float FAST_GAME_SPEED=5f;
+
+    public const float ENEMY_ANIMATION_DURATION=.8f;
+    
+    //Towers
+    public const int TOWER_ARROW=1;
+    public const int TOWER_BRICK=2;
+    public const int TOWER_FIRE=3;
+    public const int TOWER_SNIPER=4;
 
 
     public List<BattleMapTile> battleMapTiles = new List<BattleMapTile>();
+
     
     void Start() {
         createBattlefield();
@@ -173,6 +196,20 @@ public class GameManager : MonoBehaviour {
         if (!paused) {
             timeRemainingInTic-=Time.deltaTime*gameSpeed;
         }
+
+
+        handleKeyPress();
+
+        //Call update on all towers. This'll let them start the fire animation
+        foreach (BattleMapTile tile in battleMapTiles) {
+            if (tile.hasPlayerObject()) {
+                tile.battlefieldObject.Update(timeRemainingInTic);
+            }
+            else if (tile.hasEnemyObject()) {
+                tile.Update(Time.deltaTime*gameSpeed);
+            }
+            
+        } 
 
         //Our timer just hit 0. Do our player/enemy actions
         if(timeRemainingInTic<=0f) {
@@ -235,15 +272,15 @@ public class GameManager : MonoBehaviour {
         Color32 activeColour= new Color32(168,168,168, 255); //CLEANUP - constant
         Color32 inactiveColour= new Color32(65,65,65, 255);
 
-        goldUI.text="Gold: "+gold.ToString();
-        scienceUI.text="Science: "+science.ToString();
+        goldUI.text="Gold: "+Mathf.Floor(gold).ToString();
+        scienceUI.text="Science: "+Mathf.Floor(science).ToString();
 
         playerActionUI.sprite=playerActionIcons[nextPlayerAction];
 
-        playerActionLabels[ACTION_WORK].text="Work (+"+goldIncome+" gold)";
-        playerActionLabels[ACTION_STUDY].text="Study (+"+scienceIncome+" science)";
-        playerActionLabels[ACTION_TINKER].text="Tinker\n (-"+researchCost+" science)";
-        playerActionLabels[ACTION_BUILD_BASIC].text="Build tower\n (-"+basicTowerCost+" gold)";
+        playerActionLabels[ACTION_WORK].text="<color=#660000>W</color>ork (+"+goldIncome+" gold)";
+        playerActionLabels[ACTION_STUDY].text="<color=#660000>S</color>tudy (+"+scienceIncome+" science)";
+        playerActionLabels[ACTION_TINKER].text="Tinker (<color=#660000>a</color>)\n (-"+researchCost+" science)";
+        playerActionLabels[ACTION_BUILD_BASIC].text="Buil<color=#660000>d</color> tower\n (-"+basicTowerCost+" gold)";
 
         pauseButton.transform.GetComponent<Button>().interactable=!paused;
         pauseButton.GetComponent<Image>().color=(paused ? inactiveColour : activeColour);
@@ -480,6 +517,7 @@ public class GameManager : MonoBehaviour {
         }
 
         overlay.SetActive(true);
+        showingOverlay=true;
         setPaused(true);
     }
 
@@ -490,13 +528,15 @@ public class GameManager : MonoBehaviour {
         Color32 inactiveColour= new Color32(65,65,65, 255);
 
 
-        //TODO - enable/disable buttons
         foreach(GameObject thisButton in playerActionButtons) {
             thisButton.GetComponent<Button>().interactable=true;
         }
 
         if (science<researchCost) {
             playerActionButtons[ACTION_TINKER].GetComponent<Button>().interactable=false;
+            if (nextPlayerAction==ACTION_TINKER) {
+                nextPlayerAction=ACTION_WORK;
+            }
         }
 
         bool availableTowerContainers=false;
@@ -508,12 +548,17 @@ public class GameManager : MonoBehaviour {
 
         if (gold<basicTowerCost || !availableTowerContainers) {
             playerActionButtons[ACTION_BUILD_BASIC].GetComponent<Button>().interactable=false;
+            if (nextPlayerAction==ACTION_BUILD_BASIC) {
+                nextPlayerAction=ACTION_WORK;
+            }
         }
         
 
         foreach(GameObject thisButton in playerActionButtons) {
             thisButton.GetComponent<Image>().color=(thisButton.GetComponent<Button>().interactable ? activeColour : inactiveColour);
         }    
+
+        updateUI();
 
     }
 
@@ -779,7 +824,15 @@ public class GameManager : MonoBehaviour {
     ****************************************************************/
 
     public void clickPlayerActionButton(int buttonClicked) {
-        nextPlayerAction=buttonClicked;
+        if(buttonClicked==ACTION_TINKER && !playerActionButtons[ACTION_TINKER].GetComponent<Button>().interactable)  {
+            return;
+        }
+        if(buttonClicked==ACTION_BUILD_BASIC && !playerActionButtons[ACTION_BUILD_BASIC].GetComponent<Button>().interactable)  {
+            return;
+        }
+
+
+        nextPlayerAction=lastOverlayAction=buttonClicked;
         playSound(SOUND_CLICK, SOUND_CLICK_VOLUME);
         updateUI();
     }
@@ -787,19 +840,22 @@ public class GameManager : MonoBehaviour {
 
     public void clickOptionButton(int buttonClicked) {
         overlay.SetActive(false);
+        showingOverlay=false;
         setPaused(false);
+
         setActionButtonAvailability();
 
-        if (nextPlayerAction==ACTION_BUILD_BASIC) {
+        Debug.Log("Option button clicked "+buttonClicked+", lastOverlayction="+lastOverlayAction);
+
+        if (lastOverlayAction==ACTION_BUILD_BASIC) {
            createTowerAndMakeAvailable(currentSelectableTowers[buttonClicked]);
            playSound(SOUND_CLICK, SOUND_CLICK_VOLUME);
         }
-        else if (nextPlayerAction==ACTION_TINKER) {
+        else if (lastOverlayAction==ACTION_TINKER) {
             currentSelectableSciences[buttonClicked].onActivate();
             playSound(SOUND_SCIENCE, SOUND_SCIENCE_VOLUME);
+            updateUI();
         }
-
-        clickPlayerActionButton(ACTION_WORK);
     }
 
     public void createTowerAndMakeAvailable(BattlefieldObjectSO newTowerSO) {
@@ -816,6 +872,11 @@ public class GameManager : MonoBehaviour {
         }
 
         setActionButtonAvailability();
+    }
+
+    public void togglePause() {
+        setPaused(!paused);
+        playSound(SOUND_CLICK, SOUND_CLICK_VOLUME);
     }
 
     public void clickPauseButton() {
@@ -846,13 +907,47 @@ public class GameManager : MonoBehaviour {
             statsOverlay.SetActive(showOverlay);
             setPaused(showOverlay);
         }
+        showingOverlay=showOverlay;
     }
 
+
+    public void handleKeyPress() {
+        //Keys are disable when an overlay is showing
+        if (showingOverlay) {
+            return;
+        }
+        
+        if (Input.GetKeyDown("space")) {
+            togglePause();
+        }
+        else if (Input.GetKeyDown("w")) {
+            clickPlayerActionButton(ACTION_WORK);
+        }
+        else if (Input.GetKeyDown("s")) {
+            clickPlayerActionButton(ACTION_STUDY);
+        }
+        else if (Input.GetKeyDown("a")) {
+            clickPlayerActionButton(ACTION_TINKER);
+        }
+        else if (Input.GetKeyDown("d")) {
+            clickPlayerActionButton(ACTION_BUILD_BASIC);
+        }
+        else if (Input.GetKeyDown("1")) {
+            clickPauseButton();
+        }
+        else if (Input.GetKeyDown("2")) {
+            clickPlayButton();
+        }
+        else if (Input.GetKeyDown("3")) {
+            clickFastForwardButton();
+        }
+    }
 
 
     public void loseGame() {
         toggleStatsOverlay(true);
         loseOverlay.SetActive(true);
+        showingOverlay=true;
         gameOver=true;
         statsButtonUI.text="Try Again";
     }
@@ -862,4 +957,10 @@ public class GameManager : MonoBehaviour {
                 canvas.SetActive(canvas.tag==tag);
         });
      }
+
+
+    //Gets the rotation direction for a projectile's rotation (based on a north facing sprite)
+    /* public static float getRotationDirectionForProjectile (Vector2 origin, Vector2 destination) {
+        //TODO - this is pretty hacky atm
+     }*/
 }

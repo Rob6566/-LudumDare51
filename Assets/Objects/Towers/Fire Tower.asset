@@ -18,7 +18,8 @@ MonoBehaviour:
   desc: Short range AOE tower
   sprite: {fileID: 21300000, guid: 967f7f365196f4dd6bfa15ae829052a6, type: 3}
   hp: 120
-  damage: 40
+  damage: 25
   level: 1
   range: 1.5
   AOE: 1
+  projectileSpeed: 0.5

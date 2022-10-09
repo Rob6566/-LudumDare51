@@ -13,6 +13,10 @@ public class BattleMapTile {
     public int towersInRange=0;
     public int enemiesInRange=0;
 
+    public BattleMapTile animationMovedFrom;
+    public float animationTimeRemaining;
+    public bool lockColour=false;
+
     public void init(GameManager newGameManager, GameObject newGameObject, int newTilePosition) {
         gameManager=newGameManager;
         gameObject=newGameObject;
@@ -43,7 +47,32 @@ public class BattleMapTile {
         battlefieldObject.justMoved=true;
         newTile.moveObjectToTile(battlefieldObject);
         battlefieldObject=null;
+
+        newTile.animationTimeRemaining=GameManager.ENEMY_ANIMATION_DURATION;
+        newTile.animationMovedFrom=this;
+        newTile.battlefieldObject.rootGameObject.transform.SetParent(gameManager.battlefieldIndicatorContainer.transform);
+        newTile.Update(0f);
+
         updateUI();
+    }
+
+
+    //Runs every frame. Used to animate between tiles
+    public void Update(float timeDelta) {
+        if(animationTimeRemaining<0) {
+            animationTimeRemaining=0;
+            animationMovedFrom.lockColour=false;
+            Transform objectTransform=battlefieldObject.rootGameObject.transform;
+            objectTransform.SetParent(gameObject.transform);
+            positionObject();
+            animationMovedFrom.positionObject();
+        }
+        else if(animationTimeRemaining>0) {
+            animationTimeRemaining-=timeDelta;
+            Vector3 origin=animationMovedFrom.gameObject.transform.position;
+            Vector3 destination=gameObject.transform.position;
+            battlefieldObject.rootGameObject.transform.position=origin+((destination-origin)*((GameManager.ENEMY_ANIMATION_DURATION-animationTimeRemaining)/GameManager.ENEMY_ANIMATION_DURATION));
+        }
     }
 
     public bool hasEnemyObject() {
@@ -83,7 +112,14 @@ public class BattleMapTile {
         Color32 tileColour= new Color32(180,180,180, 255);
         Color32 indicatorColour= new Color32(180,180,180, 255);
         if (battlefieldObject!=null) {
-            if (battlefieldObject.objectOwner==ObjectOwner.enemy) {
+            if (lockColour) {
+                return;
+            }
+            else if (battlefieldObject.objectOwner==ObjectOwner.enemy && animationTimeRemaining>0) {
+                animationMovedFrom.gameObject.transform.GetChild(0).GetComponent<Image>().color=new Color32(255,105,105, 255);
+                animationMovedFrom.lockColour=true;
+            }
+            else if (battlefieldObject.objectOwner==ObjectOwner.enemy) {
                 tileColour=new Color32(255,105,105, 255);
             }
             else {
@@ -112,7 +148,7 @@ public class BattleMapTile {
     //Get the x, y coords of the tile
     public Vector2 getTileCoords() {
         int x = tilePosition % 10; //CLEANUP
-        int y = (int)Mathf.Floor((tilePosition+1)/10);
+        int y = (int)Mathf.Floor((tilePosition)/10);
         return new Vector2(x, y);
     }
 

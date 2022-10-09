@@ -15,4 +15,5 @@ public class BattlefieldObjectSO : ScriptableObject {
     public int level;
     public float range;
     public bool AOE=false;
+    public float projectileSpeed=1f;
 }
