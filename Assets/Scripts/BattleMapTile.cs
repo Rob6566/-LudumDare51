@@ -171,6 +171,7 @@ public class BattleMapTile {
             }
             else {
                 gameManager.kills++;
+                gameManager.score+=gameManager.SCORE_PER_LEVEL[battlefieldObject.level];
             }
             battlefieldObject.Destroy();
             battlefieldObject=null;

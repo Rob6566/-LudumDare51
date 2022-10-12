@@ -8,7 +8,7 @@ public class UpgradeScience : Science {
     private BattlefieldObjectSO upgradeTowerSO;
     private string statToUpgrade;  //hp, range, damage //CLEANUP - name enum
 
-    private int hpBoost=20;
+    private int hpBoost=40;
     private float rangeBoost=0.5f;
     private int damageBoost=5;
     private float incomeBoost=0.1f;
@@ -22,7 +22,7 @@ public class UpgradeScience : Science {
         int stat=UnityEngine.Random.Range(0, 3);
         if (upgradeTowerSO.towerTypeID==GameManager.TOWER_BRICK) {
             statToUpgrade="HP";
-            hpBoost=50;
+            hpBoost=75;
             this.desc="Increase the HP of "+upgradeTowerSO.name+"s by "+hpBoost;
         }
         else if (upgradeTowerSO.towerTypeID==GameManager.TOWER_INCOME) {

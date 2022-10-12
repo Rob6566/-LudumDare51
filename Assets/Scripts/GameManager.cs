@@ -28,6 +28,7 @@ public class GameManager : MonoBehaviour {
 
     [SerializeField] TextMeshProUGUI goldUI;
     [SerializeField] TextMeshProUGUI scienceUI;
+    [SerializeField] TextMeshProUGUI scoreUI;
     [SerializeField] TextMeshProUGUI timerUI;
 
 
@@ -47,6 +48,7 @@ public class GameManager : MonoBehaviour {
     public float science=0;
     public int nextPlayerAction=0;
     public int lastOverlayAction=0;
+    public int score=0;
 
     public int goldIncome=10;
     public int scienceIncome=10;
@@ -128,6 +130,7 @@ public class GameManager : MonoBehaviour {
     public TextMeshProUGUI goldEarnedUI;
     public TextMeshProUGUI scienceEarnedUI;
     public TextMeshProUGUI statsButtonUI;
+    public TextMeshProUGUI scoreOverlayUI;
 
 
     List<List<int>> ENEMY_MOVEMENT_SEQUENCES=new List<List<int>>(); //Sequencing of enemy movements per direction to minimise collisions
@@ -150,7 +153,7 @@ public class GameManager : MonoBehaviour {
     public const int ENEMY_ACTION_RIGHT=5;
     public const int ENEMY_ACTION_UP=6;
 
-    const int INCREASE_NUMBER_OF_ENEMIES_EVERY_X_TICS=20;
+    const int INCREASE_NUMBER_OF_ENEMIES_EVERY_X_TICS=25;
     const int ADD_DIFFICULT_ENEMIES_AFTER_X_TICS=60;
     const int ADD_ULTRA_ENEMIES_AFTER_X_TICS=120;
 
@@ -164,7 +167,7 @@ public class GameManager : MonoBehaviour {
         public const float SOUND_TIC_VOLUME=.2f;
 
     public const float NORMAL_GAME_SPEED=1.2f;
-    public const float FAST_GAME_SPEED=8f;
+    public const float FAST_GAME_SPEED=5f;
 
     public const float ENEMY_ANIMATION_DURATION=.8f;
     
@@ -176,6 +179,11 @@ public class GameManager : MonoBehaviour {
     public const int TOWER_INCOME=5;
         public float incomeTowerBonus=0f;
     public const int TOWER_BALLISTA=6;
+
+
+    //Scores
+    public const int SCORE_PER_TIC=10;
+    public List<int> SCORE_PER_LEVEL=new List<int>{0,5,20,200};
 
     public const string COLOUR_GOLD="#000000";
     public const string COLOUR_SCIENCE="#000000";
@@ -254,6 +262,7 @@ public class GameManager : MonoBehaviour {
             calculateTilesInRange(); //TODO - this is probably a bit heavy to do every Tic
 
             timeRemainingInTic=10f;
+            score+=SCORE_PER_TIC;
             updateUI();
         } 
 
@@ -340,6 +349,8 @@ public class GameManager : MonoBehaviour {
         damageTakenUI.text="Damage Taken: "+damageTaken.ToString();
         goldEarnedUI.text="Gold Earned: "+goldEarned.ToString();
         scienceEarnedUI.text="Science Earned: "+scienceEarned.ToString();
+        scoreOverlayUI.text="Score: "+score.ToString();
+        scoreUI.text="Score: "+score.ToString();
     }
 
     public float getScience() {
