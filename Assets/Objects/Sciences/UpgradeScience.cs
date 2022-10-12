@@ -11,6 +11,7 @@ public class UpgradeScience : Science {
     private int hpBoost=20;
     private float rangeBoost=0.5f;
     private int damageBoost=5;
+    private float incomeBoost=0.1f;
 
     public override void onInit() {
         //Figure out which tower we're upgrading
@@ -25,8 +26,15 @@ public class UpgradeScience : Science {
             this.desc="Increase the HP of "+upgradeTowerSO.name+"s by "+hpBoost;
         }
         else if (upgradeTowerSO.towerTypeID==GameManager.TOWER_INCOME) {
-            statToUpgrade="HP";
-            this.desc="Increase the HP of "+upgradeTowerSO.name+"s by "+hpBoost;
+            stat=UnityEngine.Random.Range(0, 2);
+            if (stat==0) {
+                statToUpgrade="HP";
+                this.desc="Increase the HP of "+upgradeTowerSO.name+"s by "+hpBoost;
+            }
+            else if (stat==1) {
+                statToUpgrade="Income";
+                this.desc="Increase the income bonus of "+upgradeTowerSO.name+"s by "+incomeBoost;
+            }
         }
         else if (stat==0) { 
             statToUpgrade="HP";
@@ -58,6 +66,9 @@ public class UpgradeScience : Science {
         }
         else if (statToUpgrade=="Damage") {
             towerModifier.damage+=damageBoost;
+        }
+        else if (statToUpgrade=="Income") {
+            gameManager.incomeTowerBonus+=incomeBoost;
         }
 
 

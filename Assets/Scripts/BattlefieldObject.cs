@@ -198,7 +198,7 @@ public class BattlefieldObject
                 TextHandler textHandler = textPopup.GetComponent<TextHandler>();
                 Vector2 tilePosition=originTile.getTileCoords();
 
-                float resourcesGained=(tilePosition.y+1)*0.2f;
+                float resourcesGained=(tilePosition.y+1)*0.1f+gameManager.incomeTowerBonus;
                 gameManager.gold+=resourcesGained;
                 gameManager.science+=resourcesGained;
                 gameManager.updateUI();

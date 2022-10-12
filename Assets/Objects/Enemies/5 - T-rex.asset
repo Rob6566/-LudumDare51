@@ -10,17 +10,16 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 18a25acfed7c4434496f046df8ff238f, type: 3}
-  m_Name: Income Tower
+  m_Name: 5 - T-rex
   m_EditorClassIdentifier: 
-  towerTypeID: 5
-  objectOwner: 1
-  name: Income Tower
-  desc: Doesn't attack. Each Tic, gain 0.1 gold and science for each row this is
-    above the bottom.
-  sprite: {fileID: 21300000, guid: 846a9e383a4c34caaa335bd3c9a0fceb, type: 3}
-  hp: 50
-  damage: 0
-  level: 1
+  towerTypeID: 0
+  objectOwner: 0
+  name: T-rex
+  desc: 
+  sprite: {fileID: 21300000, guid: 296dd231eb5794316806a7eba02f50fa, type: 3}
+  hp: 999
+  damage: 50
+  level: 3
   range: 0
   AOE: 0
-  projectileSpeed: 0
+  projectileSpeed: 1

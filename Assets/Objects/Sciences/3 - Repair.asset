@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: 3 - Repair
   m_EditorClassIdentifier: 
   name: Repair
-  desc: Repair all towers for 30% of their max HP
+  desc: Repair all towers
   sprite: {fileID: 21300000, guid: 392b214e8ba624dc69473e817669911f, type: 3}
   scienceClass: RepairScience

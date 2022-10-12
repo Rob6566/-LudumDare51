@@ -18,7 +18,8 @@ MonoBehaviour:
   desc: 
   sprite: {fileID: 21300000, guid: 4f2e74ddec517400bb8adf3717e0a3f3, type: 3}
   hp: 600
-  damage: 5
+  damage: 10
   level: 2
   range: 0
   AOE: 0
+  projectileSpeed: 1

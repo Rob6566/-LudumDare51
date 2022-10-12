@@ -72,10 +72,19 @@ public class GameManager : MonoBehaviour {
     public List<BattlefieldObjectSO> currentSelectableTowers = new List<BattlefieldObjectSO>(); 
     public List<Science> currentSelectableSciences = new List<Science>(); 
     public BattlefieldObject selectedTower=null;
-    public List<int> enemyActions = new List<int>();
+    public List<int> enemyActions = new List<int>{-1,0,0};
+    public List<int> enemyQtys = new List<int>{1,0,0};
     int enemiesOnBattlefield=0;
     int enemiesInTopRow=0;
     bool showingOverlay=false;
+    bool selectOverlayMinimised=false;
+    float previousOverlayWidth=0f;
+    float previousOverlayHeight=0f;
+    List<bool> overlayOptionVisibility=new List<bool>{false,false,false};
+
+    //Enemy quantities
+    public List<GameObject> enemyQuantityCircles = new List<GameObject>();
+    public List<TextMeshProUGUI> enemyQuantityTexts = new List<TextMeshProUGUI>();
 
     public List<BattlefieldObjectSO> allEnemies = new List<BattlefieldObjectSO>(); 
     public List<BattlefieldObjectSO> allTowers = new List<BattlefieldObjectSO>(); 
@@ -94,6 +103,8 @@ public class GameManager : MonoBehaviour {
     public List<TextMeshProUGUI> overlayTitles = new List<TextMeshProUGUI>();
     public List<Image> overlayImages = new List<Image>();
     public List<TextMeshProUGUI> overlayDescs = new List<TextMeshProUGUI>();
+    //public GameObject overlayHolder;
+    public TextMeshProUGUI toggleOverlayTXT;
 
 
     //Tower Modifiers
@@ -140,7 +151,8 @@ public class GameManager : MonoBehaviour {
     public const int ENEMY_ACTION_UP=6;
 
     const int INCREASE_NUMBER_OF_ENEMIES_EVERY_X_TICS=20;
-    const int ADD_DIFFICULT_ENEMIES_AFTER_X_TICS=50;
+    const int ADD_DIFFICULT_ENEMIES_AFTER_X_TICS=60;
+    const int ADD_ULTRA_ENEMIES_AFTER_X_TICS=120;
 
     public const int SOUND_CLICK=8;
         public const float SOUND_CLICK_VOLUME=.15f;
@@ -152,7 +164,7 @@ public class GameManager : MonoBehaviour {
         public const float SOUND_TIC_VOLUME=.2f;
 
     public const float NORMAL_GAME_SPEED=1.2f;
-    public const float FAST_GAME_SPEED=5f;
+    public const float FAST_GAME_SPEED=8f;
 
     public const float ENEMY_ANIMATION_DURATION=.8f;
     
@@ -162,6 +174,7 @@ public class GameManager : MonoBehaviour {
     public const int TOWER_FIRE=3;
     public const int TOWER_SNIPER=4;
     public const int TOWER_INCOME=5;
+        public float incomeTowerBonus=0f;
     public const int TOWER_BALLISTA=6;
 
     public const string COLOUR_GOLD="#000000";
@@ -282,6 +295,10 @@ public class GameManager : MonoBehaviour {
 
 
     public void updateUI() {
+
+        if (gameOver) {
+            return;
+        }
         Color32 activeColour= new Color32(168,168,168, 255); //CLEANUP - constant
         Color32 inactiveColour= new Color32(65,65,65, 255);
 
@@ -308,8 +325,12 @@ public class GameManager : MonoBehaviour {
 
         for (int x=0; x<3; x++) {
             int action=enemyActions[x];
+            int qty = enemyQtys[x];
             Sprite enemyActionSprite = (action>-1 ? enemyActionSprites[action] : allEnemies[Mathf.Abs(action+1)].sprite);
             enemyActionUI[x].sprite=enemyActionSprite;
+
+            enemyQuantityCircles[x].SetActive(qty>0);
+            enemyQuantityTexts[x].text=(qty>0 ? "x"+qty.ToString() : "");
         }
 
         ticsSurvivedUI.text="Actions Survived: "+ticsSurvived.ToString();
@@ -531,6 +552,7 @@ public class GameManager : MonoBehaviour {
 
         overlay.SetActive(true);
         showingOverlay=true;
+        selectOverlayMinimised=false;
         setPaused(true);
     }
 
@@ -580,12 +602,13 @@ public class GameManager : MonoBehaviour {
             return;
         }
 
-        if (battleMapTiles[slot].hasEnemyObject()) {
+        if (battleMapTiles[slot].hasObject()) {
             return;
         }
 
         if (battleMapTiles[slot].moveObjectToTile(selectedTower)) {
             selectedTower=null;
+            battleMapTiles[slot].battlefieldObject.acquireTarget();
             playSound(SOUND_PLACE_TOWER, SOUND_PLACE_TOWER_VOLUME);
         }
     }
@@ -684,8 +707,7 @@ public class GameManager : MonoBehaviour {
         int thisAction=enemyActions[0];
         if (thisAction<0) {
             //Spawn more enemies as it gets more difficult
-            int enemiesToSpawn=UnityEngine.Random.Range(1, Mathf.Max(2,2+Mathf.FloorToInt(ticsSurvived/INCREASE_NUMBER_OF_ENEMIES_EVERY_X_TICS)));
-            spawnEnemyInTopRow(allEnemies[Mathf.Abs(thisAction)-1], enemiesToSpawn);
+            spawnEnemyInTopRow(allEnemies[Mathf.Abs(thisAction)-1], enemyQtys[0]);
         }
         else if(thisAction>ENEMY_ACTION_NOTHING) {
             moveEnemiesInDirection(thisAction);
@@ -701,22 +723,39 @@ public class GameManager : MonoBehaviour {
             chanceOfSpawn=.2f;
         }
 
-        if (enemiesInTopRow>7) {
-            chanceOfSpawn=.05f;
+        //Project enemies in top row when our newly added one pops.
+        int calculatedEnemiesInTopRow=enemiesInTopRow;
+        for(int x=1; x<3; x++) {
+            if (enemyActions[x]<0) {
+                calculatedEnemiesInTopRow+=enemyQtys[x];
+            }
+            if (enemyActions[x]>=ENEMY_ACTION_DOWN_LEFT && enemyActions[x]<=ENEMY_ACTION_DOWN_RIGHT) {
+                calculatedEnemiesInTopRow=0;
+            }
+        }
+
+
+        if (calculatedEnemiesInTopRow>7) {
+            chanceOfSpawn=0f;
         }
 
         float spawnRoll=Random.Range(0f,1f);
         int nextAction=0;
+        int nextActionQty=0;
         if (spawnRoll<=chanceOfSpawn) {
             int enemyLevel=1;
-            if (ticsSurvived>=ADD_DIFFICULT_ENEMIES_AFTER_X_TICS) {
+            if (ticsSurvived>=ADD_ULTRA_ENEMIES_AFTER_X_TICS) {
+                enemyLevel=UnityEngine.Random.Range(2,4);
+            }
+            else if (ticsSurvived>=ADD_DIFFICULT_ENEMIES_AFTER_X_TICS) {
                 enemyLevel=UnityEngine.Random.Range(1,3);
             }
 
             nextAction = -getRandomEnemy(enemyLevel)-1;
+            nextActionQty=UnityEngine.Random.Range(1, Mathf.Max(2,2+Mathf.FloorToInt(ticsSurvived/INCREASE_NUMBER_OF_ENEMIES_EVERY_X_TICS)));
         }
         else {
-            if (enemiesInTopRow>7) {
+            if (calculatedEnemiesInTopRow>7) {
                 nextAction=UnityEngine.Random.Range(2, 5);
             }
             else {
@@ -725,6 +764,9 @@ public class GameManager : MonoBehaviour {
         }
 
         //Shuffle Actions
+        enemyQtys[0]=enemyQtys[1];
+        enemyQtys[1]=enemyQtys[2];
+        enemyQtys[2]=nextActionQty;
         enemyActions[0]=enemyActions[1];
         enemyActions[1]=enemyActions[2];
         enemyActions[2]=nextAction;
@@ -861,11 +903,48 @@ public class GameManager : MonoBehaviour {
         if(buttonClicked==ACTION_BUILD_BASIC && !playerActionButtons[ACTION_BUILD_BASIC].GetComponent<Button>().interactable)  {
             return;
         }
+        if (showingOverlay) {
+            return;    
+        }
 
 
         nextPlayerAction=lastOverlayAction=buttonClicked;
         playSound(SOUND_CLICK, SOUND_CLICK_VOLUME);
         updateUI();
+    }
+
+
+    public void clickToggleOverlayButton() {
+        selectOverlayMinimised=!selectOverlayMinimised;
+        RectTransform overlayTransform=overlay.GetComponent<RectTransform>();
+
+        if (selectOverlayMinimised) {
+            previousOverlayWidth=overlayTransform.rect.width;
+            previousOverlayHeight=overlayTransform.rect.height;
+
+            for(int x=0; x<3; x++) {
+               overlayOptionVisibility[x]=overlayObjects[x].activeSelf;
+               overlayObjects[x].SetActive(false);
+            }
+        }
+        else {
+            for(int x=0; x<3; x++) {
+              overlayObjects[x].SetActive(overlayOptionVisibility[x]);
+            }
+        }
+        
+        overlayTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, selectOverlayMinimised ? 120 : previousOverlayWidth);
+        overlayTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, selectOverlayMinimised ? 120 : previousOverlayHeight);
+
+        //+ / - button to minimise/maximise
+        toggleOverlayTXT.text=selectOverlayMinimised ? "+" : "-";
+        float yModifier=-.06f;
+        Transform toggleTransform = toggleOverlayTXT.gameObject.transform;
+        Vector3 togglePosition = toggleTransform.position;
+        togglePosition.y+=selectOverlayMinimised ? yModifier : -yModifier;
+        toggleTransform.position=togglePosition;
+
+        //overlayHolder.SetActive(!selectOverlayMinimised);
     }
 
 
@@ -906,17 +985,26 @@ public class GameManager : MonoBehaviour {
     }
 
     public void togglePause() {
+        if (showingOverlay) {
+            return;
+        }
         setPaused(!paused);
         playSound(SOUND_CLICK, SOUND_CLICK_VOLUME);
     }
 
     public void clickPauseButton() {
+        if (showingOverlay) {
+            return;
+        }
         setPaused(true);
         updateUI();
         playSound(SOUND_CLICK, SOUND_CLICK_VOLUME);
     }
 
     public void clickPlayButton() {
+        if (showingOverlay) {
+            return;
+        }
         setPaused(false);
         gameSpeed=NORMAL_GAME_SPEED;
         updateUI();
@@ -924,10 +1012,20 @@ public class GameManager : MonoBehaviour {
     }
 
     public void clickFastForwardButton() {
+        if (showingOverlay) {
+            return;
+        }
         setPaused(false);
         gameSpeed=FAST_GAME_SPEED;
         updateUI();
         playSound(SOUND_CLICK, SOUND_CLICK_VOLUME);
+    }
+
+    public void clickShowStatsOverlay() {
+        if (showingOverlay) {
+            return;   
+        }
+        toggleStatsOverlay(true);
     }
 
     public void toggleStatsOverlay(bool showOverlay) {
@@ -981,6 +1079,11 @@ public class GameManager : MonoBehaviour {
         showingOverlay=true;
         gameOver=true;
         statsButtonUI.text="Try Again";
+
+        for(int x=0; x<3; x++) {
+            enemyQuantityCircles[x].SetActive(false);
+            enemyQuantityTexts[x].text="";
+        }
     }
 
      public void setActiveCanvas(string tag) {
