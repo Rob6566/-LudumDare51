@@ -6,7 +6,7 @@ using UnityEngine.Animations;
 using UnityEngine.SceneManagement;
 using Unity.Services.Core;
 using Unity.Services.Authentication;
-using UnityEditor.VersionControl;
+//using UnityEditor.VersionControl;
 using UnityEngine.Networking;
 using TMPro;
 using Newtonsoft.Json.Linq;
@@ -56,6 +56,7 @@ public class GameManager : MonoBehaviour {
     public string playerName="";
     public TMP_InputField playerNameInput;
     public GameObject invalidName;
+    public TextMeshProUGUI playerNameLabel;
 
 
     //Audio
@@ -204,8 +205,9 @@ public class GameManager : MonoBehaviour {
     //Scores
     public const int SCORE_PER_TIC=10;
     public List<int> SCORE_PER_LEVEL=new List<int>{0,5,20,200};
-    public const string SCORES_URL="http://18.234.230.231/scores.php";
-    public const string ADD_SCORE_URL="http://18.234.230.231/add_score.php";
+    public const string SERVER_URL ="https://ldjam51.rob6566.click/LudumDare-server/";
+    public const string SCORES_URL="scores.php";
+    public const string ADD_SCORE_URL="add_score.php";
 
     public const string COLOUR_GOLD="#000000";
     public const string COLOUR_SCIENCE="#000000";
@@ -243,6 +245,8 @@ public class GameManager : MonoBehaviour {
         await UnityServices.InitializeAsync();
         Debug.Log("State= "+UnityServices.State);
 
+        loadPlayerName();
+
         //SetupEvents();
 
         StartCoroutine(LoadScores());
@@ -257,7 +261,7 @@ public class GameManager : MonoBehaviour {
 
         Debug.Log("Save Score");
 
-        using (UnityWebRequest webRequest = UnityWebRequest.Post(ADD_SCORE_URL, form)) {
+        using (UnityWebRequest webRequest = UnityWebRequest.Post(SERVER_URL+ADD_SCORE_URL, form)) {
             // Request and wait for the desired page.
             //webRequest.SetRequestHeader("secretkey", "12345");
             yield return webRequest.SendWebRequest();
@@ -280,7 +284,7 @@ public class GameManager : MonoBehaviour {
     IEnumerator LoadScores() {
         
          //webRequest= new UnityWebRequest();
-        string uri=SCORES_URL;
+        string uri=SERVER_URL+SCORES_URL;
         using (UnityWebRequest webRequest = UnityWebRequest.Get(uri))
         {
             // Request and wait for the desired page.
@@ -333,17 +337,26 @@ public class GameManager : MonoBehaviour {
         //Check if Player name is entered. If not, ask them to enter it
 
         if (playerName=="") {
-            playerName = PlayerPrefs.GetString("playername");
+            loadPlayerName();
         }
 
         if (playerName=="") {
-            setActiveCanvas("EnterNameCanvas");
-            invalidName.SetActive(false);
+            showEnterNameCanvas();
         }
         else {
             setActiveCanvas("GameCanvas");
             paused=false;
         }
+    }
+
+    public void showEnterNameCanvas() {
+        setActiveCanvas("EnterNameCanvas");
+        invalidName.SetActive(false);
+    }
+
+    public void loadPlayerName() {
+        playerName = PlayerPrefs.GetString("playername");
+        playerNameLabel.text="Player: <b>"+(playerName=="" ? "(not set)" : playerName)+"</b>";
     }
 
     public void enterName() {
@@ -360,6 +373,7 @@ public class GameManager : MonoBehaviour {
         else {
             playerName=tempPlayerName;
             PlayerPrefs.SetString("playername", playerName);
+            loadPlayerName();
             startGame();
         }
     }
@@ -1292,11 +1306,17 @@ public class GameManager : MonoBehaviour {
 
 
     public void loseGame() {
+        if (gameOver) {
+            return;
+        }
+
         toggleStatsOverlay(true);
         loseOverlay.SetActive(true);
         showingOverlay=true;
         gameOver=true;
         statsButtonUI.text="Try Again";
+
+        Debug.Log("loseGame");
 
         for(int x=0; x<3; x++) {
             enemyQuantityCircles[x].SetActive(false);
