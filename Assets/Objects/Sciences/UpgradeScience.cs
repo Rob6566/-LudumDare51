@@ -11,6 +11,7 @@ public class UpgradeScience : Science {
     private int hpBoost=40;
     private float rangeBoost=0.5f;
     private int damageBoost=5;
+    private int damageBoostTargeted=10;
     private float incomeBoost=0.1f;
 
     public override void onInit() {
@@ -46,6 +47,7 @@ public class UpgradeScience : Science {
         }
         else if(stat==2) {
             statToUpgrade="Damage";
+            damageBoost = upgradeTowerSO.AOE ? damageBoost : damageBoostTargeted;
             this.desc="Increase the Damage of "+upgradeTowerSO.name+"s by "+damageBoost;
         }
 

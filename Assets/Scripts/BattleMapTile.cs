@@ -97,6 +97,10 @@ public class BattleMapTile {
     }
 
     public void positionObject() {
+        if (battlefieldObject==null) {
+            return;
+        }
+
         Transform objectTransform=battlefieldObject.rootGameObject.transform;
         objectTransform.SetParent(gameObject.transform);
 

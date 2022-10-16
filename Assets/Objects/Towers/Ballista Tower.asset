@@ -15,7 +15,7 @@ MonoBehaviour:
   towerTypeID: 6
   objectOwner: 1
   name: Ballista Tower
-  desc: Fires a powerful bolt along a single column. Can damage multiple enemies.
+  desc: Fires a powerful bolt up a single column. Can damage multiple enemies.
   sprite: {fileID: 21300000, guid: 12477ca7220f445cfb613b7de868688c, type: 3}
   hp: 80
   damage: 30

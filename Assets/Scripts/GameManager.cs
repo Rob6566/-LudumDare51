@@ -4,11 +4,21 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Animations;
 using UnityEngine.SceneManagement;
+using Unity.Services.Core;
+using Unity.Services.Authentication;
+using UnityEditor.VersionControl;
+using UnityEngine.Networking;
 using TMPro;
+using Newtonsoft.Json.Linq;
+using System.Text.RegularExpressions;
 
 //TODO - fast forward button
 
 public enum ObjectOwner {enemy, player};
+
+public static class FirstLoad {
+    public static bool firstLoad=true;
+}
 
 public class GameManager : MonoBehaviour {
     public GameObject battlefieldTilePrefab;
@@ -20,6 +30,11 @@ public class GameManager : MonoBehaviour {
     public GameObject battlefieldContainer;
     public GameObject battlefieldIndicatorContainer;
     public GameObject textAlertPrefab;
+
+    //Scoring Prefabs
+    public GameObject scoreHolder;
+    public GameObject scorePrefab;
+
     [SerializeField] Image playerActionUI;
     [SerializeField] List<Image> enemyActionUI = new List<Image>();
     [SerializeField] List<Sprite> enemyActionSprites = new List<Sprite>();
@@ -36,6 +51,11 @@ public class GameManager : MonoBehaviour {
     public GameObject arrowDestroyedPrefab;
     public GameObject enemyDestroyedPrefab;
     //public AnimatorController arrowTowerAnimatorController;
+
+    //Player details
+    public string playerName="";
+    public TMP_InputField playerNameInput;
+    public GameObject invalidName;
 
 
     //Audio
@@ -184,6 +204,8 @@ public class GameManager : MonoBehaviour {
     //Scores
     public const int SCORE_PER_TIC=10;
     public List<int> SCORE_PER_LEVEL=new List<int>{0,5,20,200};
+    public const string SCORES_URL="http://18.234.230.231/scores.php";
+    public const string ADD_SCORE_URL="http://18.234.230.231/add_score.php";
 
     public const string COLOUR_GOLD="#000000";
     public const string COLOUR_SCIENCE="#000000";
@@ -195,7 +217,7 @@ public class GameManager : MonoBehaviour {
     public List<BattleMapTile> battleMapTiles = new List<BattleMapTile>();
 
     
-    void Start() {
+    async void Start() {
         createBattlefield();
         overlay.SetActive(false);
         statsOverlay.SetActive(false);
@@ -212,12 +234,134 @@ public class GameManager : MonoBehaviour {
         foreach(TextMeshProUGUI txtVersion in versionTxts) {
             txtVersion.text="Version: "+Application.version;
         }
+        if (!FirstLoad.firstLoad) {
+            //startGame();
+        }
+
+        FirstLoad.firstLoad=false;
+
+        await UnityServices.InitializeAsync();
+        Debug.Log("State= "+UnityServices.State);
+
+        //SetupEvents();
+
+        StartCoroutine(LoadScores());
     }
+
+    IEnumerator SaveScore() {
+        
+        WWWForm form = new WWWForm();
+        form.AddField("user_name", playerName);
+        form.AddField("score", score);
+        form.AddField("user_id", AuthenticationService.Instance.PlayerId);
+
+        Debug.Log("Save Score");
+
+        using (UnityWebRequest webRequest = UnityWebRequest.Post(ADD_SCORE_URL, form)) {
+            // Request and wait for the desired page.
+            //webRequest.SetRequestHeader("secretkey", "12345");
+            yield return webRequest.SendWebRequest();
+
+            Debug.Log("Save Score - sent");
+
+            switch (webRequest.result) {
+                case UnityWebRequest.Result.ConnectionError:
+                case UnityWebRequest.Result.DataProcessingError:
+                case UnityWebRequest.Result.ProtocolError:
+                    Debug.LogError("Post Score Error: " + webRequest.error);
+                    break;
+                case UnityWebRequest.Result.Success:
+                    Debug.Log("Save Score - success");
+                    break;
+            }
+        }
+    }
+
+    IEnumerator LoadScores() {
+        
+         //webRequest= new UnityWebRequest();
+        string uri=SCORES_URL;
+        using (UnityWebRequest webRequest = UnityWebRequest.Get(uri))
+        {
+            // Request and wait for the desired page.
+            //webRequest.SetRequestHeader("secretkey", "12345");
+            yield return webRequest.SendWebRequest();
+
+            string[] pages = uri.Split('/');
+            int page = pages.Length - 1;
+
+            switch (webRequest.result) {
+                case UnityWebRequest.Result.ConnectionError:
+                case UnityWebRequest.Result.DataProcessingError:
+                    Debug.LogError(pages[page] + ": Error: " + webRequest.error);
+                    break;
+                case UnityWebRequest.Result.ProtocolError:
+                    Debug.LogError(pages[page] + ": HTTP Error: " + webRequest.error);
+                    break;
+                case UnityWebRequest.Result.Success:
+                    Debug.Log(pages[page] + ":\nReceived: " + webRequest.downloadHandler.text);
+
+                    dynamic allScoreData = JArray.Parse(webRequest.downloadHandler.text);
+                    int scoreUpto=0;
+                    foreach(dynamic thisScore in allScoreData) {
+                        if (scoreUpto>10) {
+                            break;
+                        }
+
+                        GameObject gameObject = Instantiate(scorePrefab);
+
+                        gameObject.transform.SetParent(scoreHolder.transform);      
+                        gameObject.transform.localPosition=new Vector3(0, 10-(50*scoreUpto), 0);
+                        gameObject.transform.localScale=new Vector3(1f, 1f, 1f);
+                        TextMeshProUGUI txtName =gameObject.transform.GetChild(0).gameObject.GetComponent<TextMeshProUGUI>();
+                            txtName.text=thisScore.name;
+                        TextMeshProUGUI txtScore =gameObject.transform.GetChild(1).gameObject.GetComponent<TextMeshProUGUI>();
+                            txtScore.text=thisScore.score;
+
+                        scoreUpto++;
+                    }
+                    break;
+            }
+        }
+    }
+
+
 
     public void startGame() {
         playSound(SOUND_CLICK, SOUND_CLICK_VOLUME);
-        setActiveCanvas("GameCanvas");
-        paused=false;
+
+        //Check if Player name is entered. If not, ask them to enter it
+
+        if (playerName=="") {
+            playerName = PlayerPrefs.GetString("playername");
+        }
+
+        if (playerName=="") {
+            setActiveCanvas("EnterNameCanvas");
+            invalidName.SetActive(false);
+        }
+        else {
+            setActiveCanvas("GameCanvas");
+            paused=false;
+        }
+    }
+
+    public void enterName() {
+        playSound(SOUND_CLICK, SOUND_CLICK_VOLUME);
+
+        string tempPlayerName=playerNameInput.text;
+        tempPlayerName=tempPlayerName.Trim();
+        if (tempPlayerName.Length>30 || tempPlayerName.Length<2) {
+            invalidName.SetActive(true);
+        }
+        else if (!Regex.IsMatch(tempPlayerName, "^[a-zA-Z0-9 ]*$")) {
+            invalidName.SetActive(true);
+        }
+        else {
+            playerName=tempPlayerName;
+            PlayerPrefs.SetString("playername", playerName);
+            startGame();
+        }
     }
 
     public void startTutorial() {
@@ -230,6 +374,8 @@ public class GameManager : MonoBehaviour {
         if (!paused) {
             timeRemainingInTic-=Time.deltaTime*gameSpeed;
         }
+        
+        Debug.developerConsoleVisible = false;
 
 
         handleKeyPress();
@@ -268,6 +414,61 @@ public class GameManager : MonoBehaviour {
 
         timerUI.text=(paused ? "[" : "")+Mathf.RoundToInt(timeRemainingInTic+.5f).ToString()+(paused ? "]" : "");
     }
+
+
+
+    //User authentication (from https://docs.unity.com/authentication/InitializeSDK.html)
+    void SetupEvents() {
+        AuthenticationService.Instance.SignedIn += () => {
+            // Shows how to get a playerID
+            Debug.Log($"PlayerID: {AuthenticationService.Instance.PlayerId}");
+
+            // Shows how to get an access token
+            Debug.Log($"Access Token: {AuthenticationService.Instance.AccessToken}");
+
+        };
+
+        AuthenticationService.Instance.SignInFailed += (err) => {
+            Debug.LogError(err);
+        };
+
+        AuthenticationService.Instance.SignedOut += () => {
+            Debug.Log("Player signed out.");
+        };
+        
+        AuthenticationService.Instance.Expired += () => {
+            Debug.Log("Player session could not be refreshed and expired.");
+        };
+    }
+
+    //User sign in (from https://docs.unity.com/authentication/UsingAnonSignIn.html)
+    /*async Task SignInAnonymouslyAsync() {
+        try
+        {
+            await AuthenticationService.Instance.SignInAnonymouslyAsync();
+            Debug.Log("Sign in anonymously succeeded!");
+            
+            // Shows how to get the playerID
+            Debug.Log($"PlayerID: {AuthenticationService.Instance.PlayerId}"); 
+
+        }
+        catch (AuthenticationException ex)
+        {
+            // Compare error code to AuthenticationErrorCodes
+            // Notify the player with the proper error message
+            Debug.LogException(ex);
+        }
+        catch (RequestFailedException ex)
+        {
+            // Compare error code to CommonErrorCodes
+            // Notify the player with the proper error message
+            Debug.LogException(ex);
+        }
+    }*/
+
+
+
+
 
     //Create an array of modifiers for our tower. CLEANUP - move to TowerType class which links to the scriptableobject
     void initTowerModifiers() {
@@ -533,6 +734,11 @@ public class GameManager : MonoBehaviour {
 
         RectTransform overlayTransform=overlay.GetComponent<RectTransform>();
         overlayTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, optionCount==3 ? 1555 : 980); //CLEANUP - this is for 2/3 options
+        
+        Vector3 overlayPosition=overlayTransform.localPosition;
+        overlayPosition.x=(optionCount==3 ? 770 : 460);
+        overlayTransform.localPosition=overlayPosition;
+
 
         if(actionType==ACTION_BUILD_BASIC) {
             overlayTitleTXT.text="Build Tower";
@@ -1042,6 +1248,7 @@ public class GameManager : MonoBehaviour {
     public void toggleStatsOverlay(bool showOverlay) {
         if (gameOver && !showOverlay) {
             SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            startGame();
         }
         else {
             statsOverlay.SetActive(showOverlay);
@@ -1095,6 +1302,8 @@ public class GameManager : MonoBehaviour {
             enemyQuantityCircles[x].SetActive(false);
             enemyQuantityTexts[x].text="";
         }
+
+        StartCoroutine(SaveScore());
     }
 
      public void setActiveCanvas(string tag) {
