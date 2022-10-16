@@ -20,6 +20,23 @@ public static class FirstLoad {
     public static bool firstLoad=true;
 }
 
+[System.Serializable]
+public class HighScore {
+    public string name;
+    public string score;
+    public HighScore(string _name, string _score) {
+        name = _name;
+        score = _score;
+    }
+}
+
+[System.Serializable]
+public class HighScoreData
+{
+    public List<HighScore> scores;
+}
+
+
 public class GameManager : MonoBehaviour {
     public GameObject battlefieldTilePrefab;
     public GameObject battlefieldObjectPrefab;
@@ -92,6 +109,7 @@ public class GameManager : MonoBehaviour {
     //Values that change a lot
     public float timeRemainingInTic=10f;
     public bool paused=true;
+    public bool inGame=false;
     public List<BattlefieldObjectSO> currentSelectableTowers = new List<BattlefieldObjectSO>(); 
     public List<Science> currentSelectableSciences = new List<Science>(); 
     public BattlefieldObject selectedTower=null;
@@ -232,6 +250,7 @@ public class GameManager : MonoBehaviour {
         statsButtonUI.text="Close";
         setActiveCanvas("TitleCanvas");
         paused=true;
+        inGame=false;
 
         foreach(TextMeshProUGUI txtVersion in versionTxts) {
             txtVersion.text="Version: "+Application.version;
@@ -243,7 +262,6 @@ public class GameManager : MonoBehaviour {
         FirstLoad.firstLoad=false;
 
         await UnityServices.InitializeAsync();
-        Debug.Log("State= "+UnityServices.State);
 
         loadPlayerName();
 
@@ -259,23 +277,17 @@ public class GameManager : MonoBehaviour {
         form.AddField("score", score);
         form.AddField("user_id", AuthenticationService.Instance.PlayerId);
 
-        Debug.Log("Save Score");
-
         using (UnityWebRequest webRequest = UnityWebRequest.Post(SERVER_URL+ADD_SCORE_URL, form)) {
             // Request and wait for the desired page.
             //webRequest.SetRequestHeader("secretkey", "12345");
             yield return webRequest.SendWebRequest();
 
-            Debug.Log("Save Score - sent");
-
             switch (webRequest.result) {
                 case UnityWebRequest.Result.ConnectionError:
                 case UnityWebRequest.Result.DataProcessingError:
                 case UnityWebRequest.Result.ProtocolError:
-                    Debug.LogError("Post Score Error: " + webRequest.error);
                     break;
                 case UnityWebRequest.Result.Success:
-                    Debug.Log("Save Score - success");
                     break;
             }
         }
@@ -305,6 +317,29 @@ public class GameManager : MonoBehaviour {
                 case UnityWebRequest.Result.Success:
                     Debug.Log(pages[page] + ":\nReceived: " + webRequest.downloadHandler.text);
 
+                    
+                    string jsonString=webRequest.downloadHandler.text;
+                    var data = JsonUtility.FromJson<HighScoreData>(jsonString);
+                    int scoreUpto=0;
+                    foreach (HighScore thisScore in data.scores) {
+                        if (scoreUpto>10) {
+                            break;
+                        }
+
+                        GameObject gameObject = Instantiate(scorePrefab);
+
+                        gameObject.transform.SetParent(scoreHolder.transform);      
+                        gameObject.transform.localPosition=new Vector3(0, 10-(50*scoreUpto), 0);
+                        gameObject.transform.localScale=new Vector3(1f, 1f, 1f);
+                        TextMeshProUGUI txtName = gameObject.transform.GetChild(0).gameObject.GetComponent<TextMeshProUGUI>();
+                            txtName.text=thisScore.name;
+                        TextMeshProUGUI txtScore = gameObject.transform.GetChild(1).gameObject.GetComponent<TextMeshProUGUI>();
+                            txtScore.text=thisScore.score;
+                        scoreUpto++;
+                    }
+                    
+                    /*
+                    //Original JSON code - webGL doesn't like "dynamic"
                     dynamic allScoreData = JArray.Parse(webRequest.downloadHandler.text);
                     int scoreUpto=0;
                     foreach(dynamic thisScore in allScoreData) {
@@ -323,7 +358,7 @@ public class GameManager : MonoBehaviour {
                             txtScore.text=thisScore.score;
 
                         scoreUpto++;
-                    }
+                    }*/
                     break;
             }
         }
@@ -346,6 +381,7 @@ public class GameManager : MonoBehaviour {
         else {
             setActiveCanvas("GameCanvas");
             paused=false;
+            inGame=true;
         }
     }
 
@@ -1216,7 +1252,7 @@ public class GameManager : MonoBehaviour {
     }
 
     public void togglePause() {
-        if (showingOverlay) {
+        if (showingOverlay || !inGame) {
             return;
         }
         setPaused(!paused);
@@ -1224,7 +1260,7 @@ public class GameManager : MonoBehaviour {
     }
 
     public void clickPauseButton() {
-        if (showingOverlay) {
+        if (showingOverlay || !inGame) {
             return;
         }
         setPaused(true);
@@ -1233,7 +1269,7 @@ public class GameManager : MonoBehaviour {
     }
 
     public void clickPlayButton() {
-        if (showingOverlay) {
+        if (showingOverlay || !inGame) {
             return;
         }
         setPaused(false);
@@ -1243,7 +1279,7 @@ public class GameManager : MonoBehaviour {
     }
 
     public void clickFastForwardButton() {
-        if (showingOverlay) {
+        if (showingOverlay || !inGame) {
             return;
         }
         setPaused(false);
@@ -1274,7 +1310,7 @@ public class GameManager : MonoBehaviour {
 
     public void handleKeyPress() {
         //Keys are disable when an overlay is showing
-        if (showingOverlay) {
+        if (showingOverlay || !inGame) {
             return;
         }
         
@@ -1314,9 +1350,8 @@ public class GameManager : MonoBehaviour {
         loseOverlay.SetActive(true);
         showingOverlay=true;
         gameOver=true;
+        inGame=false;
         statsButtonUI.text="Try Again";
-
-        Debug.Log("loseGame");
 
         for(int x=0; x<3; x++) {
             enemyQuantityCircles[x].SetActive(false);
